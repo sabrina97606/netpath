@@ -181,6 +181,7 @@ export function IpSlaDashboard() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [direction, setDirection] = useState<"sd" | "ds">("ds");
   const [notice, setNotice] = useState("");
+  const [showChrome, setShowChrome] = useState(false);
   const end = Date.UTC(2026, 9, 21, 8, refresh);
   const scoped = operations.filter(operation => (site === "All sites" || operation.site === site) && (type === "All types" || operation.type === type) && `${operation.device} ${operation.id} ${operation.target}`.toLowerCase().includes(query.toLowerCase()));
   const filtered = scoped.filter(operation => status === "All statuses" || health(operation) === status);
@@ -210,22 +211,22 @@ export function IpSlaDashboard() {
   };
 
   return <div className="np-app sla-app">
-    <header className="np-top">
+    {showChrome && <header className="np-top">
       <div className="np-brand"><Cloud size={23} /><span>Digital Operation Central Platform</span></div>
       <Home size={13} /><span>Products <ChevronDown size={10} /></span><i /><span>DOOP</span>
       <div className="np-top-right"><Search size={13} /><Bell size={13} /><b>云智慧集团</b><span>English <ChevronDown size={10} /></span><span>Admin <ChevronDown size={10} /></span></div>
-    </header>
+    </header>}
     <div className="np-shell">
-      <aside className="np-nav" aria-label="Main navigation">
+      {showChrome && <aside className="np-nav" aria-label="Main navigation">
         {navigation.map(item => <div key={item.label}>
           <button className={item.label === "Infrastructure" ? "np-nav-current" : ""} onClick={() => item.label !== "Infrastructure" && setNotice(`${item.label} is not available in this prototype`)}><item.icon size={13} /><span>{item.label}</span><ChevronDown size={11} /></button>
           {item.label === "Infrastructure" && <div className="np-subnav">{["Hosts", "Processes", "Kubernetes", "Network Devices", "Network Path", "IP SLA", "Resources", "Reports"].map(label => label === "Network Path" || label === "IP SLA" ? <Link key={label} className={label === "IP SLA" ? "active" : ""} href={label === "IP SLA" ? "/ip-sla" : "/network-path"} aria-current={label === "IP SLA" ? "page" : undefined}>{label}</Link> : <button key={label} onClick={() => setNotice(`${label} is not available in this prototype`)}>{label}</button>)}</div>}
         </div>)}
         <footer>7.1.0 <Layers size={12} /></footer>
-      </aside>
+      </aside>}
       <main className="np-main sla-main">
-        <div className="np-workspace-tabs"><span><Activity size={12} />IP SLA</span><Link href="/network-path">Network Path</Link></div>
-        <div className="sla-module-header"><h1>IP SLA</h1><span className="sla-demo">Demo data</span><div className="sla-header-actions"><Clock3 size={13} /><select aria-label="Time range" value={hours} onChange={event => setHours(Number(event.target.value))}><option value={1}>Last 1 hour</option><option value={6}>Last 6 hours</option><option value={24}>Last 24 hours</option></select><span className="sla-range-label">{new Date(end - hours * 3600000).toISOString().slice(0, 16).replace("T", " ")} – {new Date(end).toISOString().slice(11, 16)} UTC</span><button className="sla-icon-button" title="Refresh dashboard" aria-label="Refresh dashboard" onClick={() => { setRefresh(previous => previous + 1); setNotice("Dashboard refreshed"); }}><RefreshCw size={14} /></button></div></div>
+        {showChrome && <div className="np-workspace-tabs"><span><Activity size={12} />IP SLA</span><Link href="/network-path">Network Path</Link></div>}
+        <div className="sla-module-header"><button type="button" role="switch" aria-checked={showChrome} aria-label="显示顶部导航与左侧菜单" title={showChrome ? "隐藏导航" : "显示导航"} className={`np-chrome-switch${showChrome ? " on" : ""}`} onClick={() => setShowChrome(value => !value)}><span /></button><h1>IP SLA</h1><span className="sla-demo">Demo data</span><div className="sla-header-actions"><Clock3 size={13} /><select aria-label="Time range" value={hours} onChange={event => setHours(Number(event.target.value))}><option value={1}>Last 1 hour</option><option value={6}>Last 6 hours</option><option value={24}>Last 24 hours</option></select><span className="sla-range-label">{new Date(end - hours * 3600000).toISOString().slice(0, 16).replace("T", " ")} – {new Date(end).toISOString().slice(11, 16)} UTC</span><button className="sla-icon-button" title="Refresh dashboard" aria-label="Refresh dashboard" onClick={() => { setRefresh(previous => previous + 1); setNotice("Dashboard refreshed"); }}><RefreshCw size={14} /></button></div></div>
         <div className="sla-content">
           {selected && <div className="sla-heading"><h2>{selected.device} / Operation {selected.id}</h2></div>}
           {selected ? <div className="sla-detail-toolbar"><button onClick={() => setSelectedKey(null)}><ArrowLeft size={14} />Back to dashboard</button><Badge state={health(selected)} /><span>{selected.type}</span><span>Cisco IP SLA</span><button className="sla-secondary sla-push-right" onClick={() => toggleCollection(selected)}>{selected.enabled ? <Pause size={13} /> : <Play size={13} />}{selected.enabled ? "Pause collection" : "Resume collection"}</button></div> : <div className="sla-filters">
