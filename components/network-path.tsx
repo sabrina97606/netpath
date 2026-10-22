@@ -229,6 +229,7 @@ function Destination({ name }: { name: string }) {
 export function NetworkPath() {
   const [tests, setTests] = useState(initialTests);
   const [tab, setTab] = useState("Explorer");
+  const [showChrome, setShowChrome] = useState(false);
   const [view, setView] = useState("Grouped Tests");
   const [groupBy, setGroupBy] = useState("source");
   const [query, setQuery] = useState("");
@@ -501,6 +502,7 @@ export function NetworkPath() {
 
   return (
     <div className="np-app">
+      {showChrome && (
       <header className="np-top">
         <div className="np-brand">
           <Cloud size={23} />
@@ -524,7 +526,9 @@ export function NetworkPath() {
           </span>
         </div>
       </header>
+      )}
       <div className="np-shell">
+        {showChrome && (
         <aside className="np-nav">
           {navigation.map((item) => (
             <div key={item.label}>
@@ -579,7 +583,9 @@ export function NetworkPath() {
             7.1.0 <Layers size={12} />
           </footer>
         </aside>
+        )}
         <main className="np-main">
+          {showChrome && (
           <div className="np-workspace-tabs">
             <span>
               <Network size={12} /> Network Path
@@ -592,7 +598,19 @@ export function NetworkPath() {
             </span>
             <MoreVertical size={13} />
           </div>
+          )}
           <div className="np-module-header">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showChrome}
+              aria-label="显示顶部导航与左侧菜单"
+              title={showChrome ? "隐藏导航" : "显示导航"}
+              className={`np-chrome-switch${showChrome ? " on" : ""}`}
+              onClick={() => setShowChrome((value) => !value)}
+            >
+              <span />
+            </button>
             <button className="np-my-view" onClick={restoreView}>
               My View
             </button>
