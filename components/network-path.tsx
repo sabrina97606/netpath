@@ -584,7 +584,7 @@ export function NetworkPath() {
             <span>
               <Network size={12} /> Network Path
             </span>
-            <a href="/">
+            <a href="/pipeline">
               Netflow Pipeline <X size={10} />
             </a>
             <span className="np-muted-tab">

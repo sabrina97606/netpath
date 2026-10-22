@@ -183,7 +183,7 @@ export function Sidebar() {
             onToggle={() => toggleItem("dataGovernance")}
           >
             <div className="mt-0.5">
-              <SubNavItem label={translations[language].tabs.dataProcessing} href="/" active />
+              <SubNavItem label={translations[language].tabs.dataProcessing} href="/pipeline" active />
               <SubNavItem label={t.logRuleConfig} />
               <SubNavItem label={t.categoryManagement} />
             </div>
