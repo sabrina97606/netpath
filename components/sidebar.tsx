@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import {
   ChevronDown,
   ChevronRight,
@@ -70,19 +71,22 @@ function NavItem({
 interface SubNavItemProps {
   label: string
   active?: boolean
+  href?: string
 }
 
-function SubNavItem({ label, active }: SubNavItemProps) {
-  return (
-    <button
-      className={cn(
-        "w-full text-left pl-9 pr-3 py-2 text-sm transition-colors",
-        active ? "text-sky-500" : "text-slate-600 hover:bg-slate-100"
-      )}
-    >
-      {label}
-    </button>
+function SubNavItem({ label, active, href }: SubNavItemProps) {
+  const className = cn(
+    "block w-full text-left pl-9 pr-3 py-2 text-sm transition-colors",
+    active ? "text-sky-500" : "text-slate-600 hover:bg-slate-100"
   )
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-current={active ? "page" : undefined}>
+        {label}
+      </Link>
+    )
+  }
+  return <button className={className}>{label}</button>
 }
 
 export function Sidebar() {
@@ -132,7 +136,12 @@ export function Sidebar() {
             hasChildren
             expanded={expandedItems.infraMonitor}
             onToggle={() => toggleItem("infraMonitor")}
-          />
+          >
+            <div className="mt-0.5">
+              <SubNavItem label="Network Path" href="/network-path" />
+              <SubNavItem label="IP SLA" href="/ip-sla" />
+            </div>
+          </NavItem>
           <NavItem
             icon={<LineChart className="h-4 w-4" />}
             label={t.transactionMonitor}
@@ -174,7 +183,7 @@ export function Sidebar() {
             onToggle={() => toggleItem("dataGovernance")}
           >
             <div className="mt-0.5">
-              <SubNavItem label={translations[language].tabs.dataProcessing} active />
+              <SubNavItem label={translations[language].tabs.dataProcessing} href="/" active />
               <SubNavItem label={t.logRuleConfig} />
               <SubNavItem label={t.categoryManagement} />
             </div>
