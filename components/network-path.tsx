@@ -668,17 +668,6 @@ export function NetworkPath() {
                   </button>
                 ))}
               </div>
-              {!detailOpen && (
-                <button
-                  className="np-primary"
-                  onClick={() => {
-                    setFormError("");
-                    setDrawer("new");
-                  }}
-                >
-                  <Plus size={14} /> New Test
-                </button>
-              )}
             </div>
             <div className="np-viewbar">
               {!detailOpen && (
@@ -739,6 +728,17 @@ export function NetworkPath() {
                   <RefreshCw size={13} />
                 </IconButton>
               </div>
+              {!detailOpen && (
+                <button
+                  className="np-primary"
+                  onClick={() => {
+                    setFormError("");
+                    setDrawer("new");
+                  }}
+                >
+                  <Plus size={14} /> New Test
+                </button>
+              )}
             </div>
           </div>
           {notice && (

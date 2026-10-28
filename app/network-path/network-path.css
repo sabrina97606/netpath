@@ -246,6 +246,10 @@
   padding: 4px 10px;
   white-space: nowrap;
 }
+.np-viewbar > .np-primary {
+  flex-shrink: 0;
+  margin-left: 4px;
+}
 .np-app .np-primary:hover:not(:disabled) {
   color: #fff;
   background: #258bf3;
@@ -1413,9 +1417,10 @@
     left: 7px;
     top: 2px;
   }
-  .np-module-tabs > .np-primary {
+  .np-viewbar > .np-primary {
     font-size: 12px;
     padding: 4px 5px;
+    flex-shrink: 0;
   }
   .np-viewbar {
     width: 100%;
