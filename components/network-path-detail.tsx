@@ -437,15 +437,36 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setCanvasSize({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      }),
-    );
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      cancelAnimationFrame(frame);
+      // 延后到下一帧再更新状态，避免在 RO 回调中触发布局变化形成循环
+      frame = requestAnimationFrame(() =>
+        setCanvasSize((current) =>
+          Math.abs(current.width - width) < 1 &&
+          Math.abs(current.height - height) < 1
+            ? current
+            : { width, height },
+        ),
+      );
+    });
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
   }, [activeTab]);
+  useEffect(() => {
+    // React Flow 内部的 ResizeObserver 也会触发该无害告警，这里统一拦截
+    const swallow = (event: ErrorEvent) => {
+      if (event.message?.includes("ResizeObserver loop")) {
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("error", swallow);
+    return () => window.removeEventListener("error", swallow);
+  }, []);
   useEffect(() => {
     const dismiss = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
