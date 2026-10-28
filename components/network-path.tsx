@@ -1072,6 +1072,24 @@ export function NetworkPath() {
                         : filtered.length}{" "}
                       results
                     </span>
+                    <label className="np-top-limit">
+                      Show top{" "}
+                      <select
+                        aria-label="Show top results"
+                        value={limit}
+                        onChange={(event) => {
+                          setLimit(Number(event.target.value));
+                          resetPage();
+                        }}
+                      >
+                        {[100, 500, 1000].map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>{" "}
+                      results
+                    </label>
                     <button
                       className="np-outline"
                       disabled={!selected.length}
@@ -1217,24 +1235,6 @@ export function NetworkPath() {
                     )}
                   </div>
                   <div className="np-pagination">
-                    <label>
-                      Show top{" "}
-                      <select
-                        aria-label="Show top results"
-                        value={limit}
-                        onChange={(event) => {
-                          setLimit(Number(event.target.value));
-                          resetPage();
-                        }}
-                      >
-                        {[100, 500, 1000].map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>{" "}
-                      results
-                    </label>
                     <span className="np-update">
                       {paused ? "Paused" : `Updated: ${refreshed}`}
                     </span>

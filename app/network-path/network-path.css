@@ -583,7 +583,18 @@
   margin-left: auto;
   margin-right: 5px;
 }
-.np-table-scroll {
+  .np-top-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 5px;
+  color: #606266;
+  white-space: nowrap;
+  }
+  .np-top-limit select {
+  padding: 2px 3px;
+  }
+  .np-table-scroll {
   overflow: auto;
   border: 0;
   border-bottom: 1px solid #ebeef5;
