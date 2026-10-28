@@ -1,0 +1,302 @@
+[
+  {
+    "name": "BJ-HQ-CORE-SW01",
+    "ip": "10.1.1.100",
+    "oobIp": "10.2.1.100",
+    "type": "switch",
+    "vendor": "Cisco",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "BJ-HQ-CORE-SW02",
+    "ip": "10.1.1.101",
+    "oobIp": "10.2.1.101",
+    "type": "switch",
+    "vendor": "Cisco",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "BJ-HQ-EDGE-FW01",
+    "ip": "10.1.2.100",
+    "oobIp": "10.2.2.100",
+    "type": "firewall",
+    "vendor": "Fortinet",
+    "model": "FortiGate 200F",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "BJ-HQ-EDGE-FW02",
+    "ip": "10.1.2.101",
+    "oobIp": "10.2.2.101",
+    "type": "firewall",
+    "vendor": "Fortinet",
+    "model": "FortiGate 200F",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "CD-HQ-CORE-SW01",
+    "ip": "10.1.1.112",
+    "oobIp": "10.2.1.112",
+    "type": "switch",
+    "vendor": "Ruijie",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "CD-HQ-CORE-SW02",
+    "ip": "10.1.1.113",
+    "oobIp": "10.2.1.113",
+    "type": "switch",
+    "vendor": "Ruijie",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "CQ-HQ-CORE-SW01",
+    "ip": "10.1.1.118",
+    "oobIp": "10.2.1.118",
+    "type": "switch",
+    "vendor": "Cisco",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "CQ-HQ-CORE-SW02",
+    "ip": "10.1.1.119",
+    "oobIp": "10.2.1.119",
+    "type": "switch",
+    "vendor": "Cisco",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "GZ-HQ-CORE-SW01",
+    "ip": "10.1.1.104",
+    "oobIp": "10.2.1.104",
+    "type": "switch",
+    "vendor": "Huawei",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "GZ-HQ-CORE-SW02",
+    "ip": "10.1.1.105",
+    "oobIp": "10.2.1.105",
+    "type": "switch",
+    "vendor": "Huawei",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "GZ-HQ-EDGE-FW01",
+    "ip": "10.1.2.104",
+    "oobIp": "10.2.2.104",
+    "type": "firewall",
+    "vendor": "Huawei",
+    "model": "USG6650E",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "GZ-HQ-EDGE-FW02",
+    "ip": "10.1.2.105",
+    "oobIp": "10.2.2.105",
+    "type": "firewall",
+    "vendor": "Huawei",
+    "model": "USG6650E",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "HZ-CAMPUS-CORE-SW01",
+    "ip": "10.1.1.108",
+    "oobIp": "10.2.1.108",
+    "type": "switch",
+    "vendor": "H3C",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "HZ-CAMPUS-CORE-SW02",
+    "ip": "10.1.1.109",
+    "oobIp": "10.2.1.109",
+    "type": "switch",
+    "vendor": "H3C",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "HZ-CAMPUS-EDGE-FW01",
+    "ip": "10.1.2.108",
+    "oobIp": "10.2.2.108",
+    "type": "firewall",
+    "vendor": "Juniper",
+    "model": "SRX1500",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "HZ-CAMPUS-EDGE-FW02",
+    "ip": "10.1.2.109",
+    "oobIp": "10.2.2.109",
+    "type": "firewall",
+    "vendor": "Juniper",
+    "model": "SRX1500",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "NJ-DC1-CORE-SW01",
+    "ip": "10.1.1.110",
+    "oobIp": "10.2.1.110",
+    "type": "switch",
+    "vendor": "H3C",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "NJ-DC1-CORE-SW02",
+    "ip": "10.1.1.111",
+    "oobIp": "10.2.1.111",
+    "type": "switch",
+    "vendor": "H3C",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "SH-DC1-CORE-SW01",
+    "ip": "10.1.1.102",
+    "oobIp": "10.2.1.102",
+    "type": "switch",
+    "vendor": "Cisco",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "SH-DC1-CORE-SW02",
+    "ip": "10.1.1.103",
+    "oobIp": "10.2.1.103",
+    "type": "switch",
+    "vendor": "Cisco",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "SH-DC1-DMZ-FW01",
+    "ip": "10.1.2.102",
+    "oobIp": "10.2.2.102",
+    "type": "firewall",
+    "vendor": "Palo Alto Networks",
+    "model": "PA-3220",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "SH-DC1-DMZ-FW02",
+    "ip": "10.1.2.103",
+    "oobIp": "10.2.2.103",
+    "type": "firewall",
+    "vendor": "Palo Alto Networks",
+    "model": "PA-3220",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "SZ-DC1-CORE-SW01",
+    "ip": "10.1.1.106",
+    "oobIp": "10.2.1.106",
+    "type": "switch",
+    "vendor": "Huawei",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "SZ-DC1-CORE-SW02",
+    "ip": "10.1.1.107",
+    "oobIp": "10.2.1.107",
+    "type": "switch",
+    "vendor": "Huawei",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "SZ-DC1-SERVER-FW01",
+    "ip": "10.1.2.106",
+    "oobIp": "10.2.2.106",
+    "type": "firewall",
+    "vendor": "H3C",
+    "model": "SecPath F1000-AI",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "SZ-DC1-SERVER-FW02",
+    "ip": "10.1.2.107",
+    "oobIp": "10.2.2.107",
+    "type": "firewall",
+    "vendor": "H3C",
+    "model": "SecPath F1000-AI",
+    "portCount": 16,
+    "running": "Running"
+  },
+  {
+    "name": "WH-CAMPUS-CORE-SW01",
+    "ip": "10.1.1.114",
+    "oobIp": "10.2.1.114",
+    "type": "switch",
+    "vendor": "Juniper",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "WH-CAMPUS-CORE-SW02",
+    "ip": "10.1.1.115",
+    "oobIp": "10.2.1.115",
+    "type": "switch",
+    "vendor": "Juniper",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "XA-DC1-CORE-SW01",
+    "ip": "10.1.1.116",
+    "oobIp": "10.2.1.116",
+    "type": "switch",
+    "vendor": "Arista",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  },
+  {
+    "name": "XA-DC1-CORE-SW02",
+    "ip": "10.1.1.117",
+    "oobIp": "10.2.1.117",
+    "type": "switch",
+    "vendor": "Arista",
+    "model": "",
+    "portCount": 26,
+    "running": "Running"
+  }
+]
