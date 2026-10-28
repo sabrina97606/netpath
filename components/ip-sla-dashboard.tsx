@@ -170,6 +170,51 @@ function Badge({ state }: { state: Health }) {
   return <span className="sla-badge" style={{ color: healthColors[state] }}><span style={{ background: healthColors[state] }} />{state}</span>;
 }
 
+type AlertItem = { operation: Operation; state: Health; time: number; title: string; detail: string; evidence: string };
+
+const alertReference = Date.UTC(2026, 9, 28, 6, 0);
+
+function qualityAdvice(operation: Operation) {
+  const loss = Math.max(operation.lossSd ?? 0, operation.lossDs ?? 0);
+  const jitter = Math.max(operation.jitterSd ?? 0, operation.jitterDs ?? 0);
+  if (loss >= 1) return "Check interface errors, queue drops and link utilization along the path.";
+  if (jitter >= 15) return "Check QoS policy and congestion on the path; jitter at this level affects voice and other real-time traffic.";
+  return "Check routing, WAN link utilization and carrier status for this path.";
+}
+
+function buildAlert(operation: Operation): AlertItem {
+  const state = health(operation);
+  const random = seeded(`alert-${operation.key}`);
+  const minutes = state === "Stale" ? 18 : Math.floor(5 + random() * 85);
+  const target = `${operation.targetCi.name} (${operation.target})`;
+  const latest = `RTT ${number(operation.rtt, " ms")} · Jitter S→T / T→S ${number(operation.jitterSd)} / ${number(operation.jitterDs)} ms · Loss S→T / T→S ${number(operation.lossSd)} / ${number(operation.lossDs)} %`;
+  const base = { operation, state, time: alertReference - minutes * 60000 };
+  if (state === "Down") return { ...base, title: "Probe timeout, target unreachable", detail: `The ${operation.type} operation from ${operation.device} (${operation.source}) received no response from ${target} for ${minutes} minutes. The device reports result "timeout", so RTT, jitter and packet loss are unavailable. Verify link and routing to the target, and that the IP SLA responder is running and not blocked by an ACL.`, evidence: `Device result: timeout · ${operation.probe} · ${operation.site}` };
+  if (state === "Collection error") return { ...base, title: "Data collection failed", detail: `The DOOP SNMP request to ${operation.device} (${operation.source}) timed out, so the ${operation.probe} result for the path to ${target} could not be refreshed. The values shown are the last retained result and may be out of date. Check SNMP credentials, ACLs and device CPU load.`, evidence: `Last retained result: ${latest}` };
+  if (state === "Stale") return { ...base, title: "No new probe result", detail: `${operation.device} has not returned a new result for the path to ${target} for ${minutes} minutes, although the operation runs every 60 s. The operation may have stopped or been rescheduled, or the device clock may be out of sync. Check the operation schedule on the device and its NTP status.`, evidence: `Last result: ${latest}` };
+  return { ...base, title: state === "Critical" ? "Critical path quality" : "Degraded path quality", detail: `Thresholds breached on the ${operation.type} path from ${operation.device} (${operation.source}) to ${target}: ${operation.reason}. ${qualityAdvice(operation)}`, evidence: `Latest: ${latest}` };
+}
+
+function formatDuration(minutes: number) {
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+function AlertTable({ alerts, end, onSelect }: { alerts: AlertItem[]; end: number; onSelect: (key: string) => void }) {
+  return <div className="sla-alert-scroll"><Table className="sla-alert-table">
+    <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Status</TableHead><TableHead>Alert</TableHead></TableRow></TableHeader>
+    <TableBody>{alerts.map(alert => <TableRow key={alert.operation.key}>
+      <TableCell className="sla-alert-time"><strong>{new Date(alert.time).toISOString().slice(0, 19).replace("T", " ")}</strong><small>UTC · active {formatDuration(Math.max(1, Math.round((end - alert.time) / 60000)))}</small></TableCell>
+      <TableCell><Badge state={alert.state} /></TableCell>
+      <TableCell className="sla-alert-body">
+        <button className="sla-table-link sla-alert-title" title="Open operation details" onClick={() => onSelect(alert.operation.key)}>{alert.title}<span>{alert.operation.device} #{alert.operation.id}</span></button>
+        <p>{alert.detail}</p>
+        <small>{alert.evidence}</small>
+        <div className="sla-alert-links"><span>Source {alert.operation.device}<CiLink ci={alert.operation.ci} /></span><span>Target {alert.operation.targetCi.name}<CiLink ci={alert.operation.targetCi} /></span></div>
+      </TableCell>
+    </TableRow>)}</TableBody>
+  </Table></div>;
+}
+
 function DashboardSection({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return <Collapsible defaultOpen className="sla-dashboard-section">
     <div className="sla-section-heading"><CollapsibleTrigger className="sla-section-toggle"><ChevronDown size={13} /><h3>{title}</h3></CollapsibleTrigger>{note && <span>{note}</span>}</div>
@@ -177,7 +222,7 @@ function DashboardSection({ title, note, children }: { title: string; note?: str
   </Collapsible>;
 }
 
-function OperationTable({ operations, mode, onSelect, onToggle }: { operations: Operation[]; mode: "issues" | "all" | "ranking"; onSelect: (key: string) => void; onToggle: (operation: Operation) => void }) {
+function OperationTable({ operations, mode, onSelect, onToggle }: { operations: Operation[]; mode: "all" | "ranking"; onSelect: (key: string) => void; onToggle: (operation: Operation) => void }) {
   const [sort, setSort] = useState<{ key: "device" | "target" | "type" | "rtt"; ascending: boolean } | null>(null);
   const [pageSize, setPageSize] = useState(30);
   const [pagination, setPagination] = useState({ scope: "", page: 1 });
@@ -195,11 +240,11 @@ function OperationTable({ operations, mode, onSelect, onToggle }: { operations: 
   const sortableHead = (key: "device" | "target" | "type" | "rtt", title: string) => <TableHead aria-sort={sort?.key === key ? sort.ascending ? "ascending" : "descending" : "none"}><button className="sla-sort-button" title={`Sort by ${title}`} onClick={() => setSort({ key, ascending: sort?.key === key ? !sort.ascending : true })}>{title}<ArrowDownUp size={12} /></button></TableHead>;
   return <>
     <Table>
-    <TableHeader><TableRow>{sortableHead("device", "Source device / operation")}{sortableHead("target", "Target")}{sortableHead("type", "Type")}<TableHead>Status</TableHead>{mode === "issues" ? <TableHead>Issue</TableHead> : <TableHead>Site</TableHead>}{sortableHead("rtt", "Latest RTT (ms)")}{mode === "all" && <><TableHead>Jitter S→T / T→S (ms)</TableHead><TableHead>Loss S→T / T→S (%)</TableHead><TableHead>Collection</TableHead></>}</TableRow></TableHeader>
+    <TableHeader><TableRow>{sortableHead("device", "Source device / operation")}{sortableHead("target", "Target")}{sortableHead("type", "Type")}<TableHead>Status</TableHead><TableHead>Site</TableHead>{sortableHead("rtt", "Latest RTT (ms)")}{mode === "all" && <><TableHead>Jitter S→T / T→S (ms)</TableHead><TableHead>Loss S→T / T→S (%)</TableHead><TableHead>Collection</TableHead></>}</TableRow></TableHeader>
     <TableBody>{sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(operation => <TableRow key={operation.key}>
       <TableCell><div className="sla-ci-cell"><button className="sla-table-link" onClick={() => onSelect(operation.key)}>{operation.device}<span>#{operation.id}</span></button><CiLink ci={operation.ci} /></div><small>{operation.source}</small></TableCell>
       <TableCell><div className="sla-ci-cell"><span>{operation.targetCi.name}</span><CiLink ci={operation.targetCi} /></div><small>{operation.target}</small></TableCell><TableCell>{operation.type}</TableCell><TableCell><Badge state={health(operation)} /></TableCell>
-      <TableCell className={mode === "issues" ? "sla-reason" : undefined}>{mode === "issues" ? reason(operation) : operation.site}</TableCell><TableCell>{number(operation.rtt)}</TableCell>
+      <TableCell>{operation.site}</TableCell><TableCell>{number(operation.rtt)}</TableCell>
       {mode === "all" && <><TableCell>{number(operation.jitterSd)} / {number(operation.jitterDs)}</TableCell><TableCell>{number(operation.lossSd)} / {number(operation.lossDs)}</TableCell><TableCell><button className="sla-icon-button" title={operation.enabled ? "Pause collection" : "Resume collection"} aria-label={`${operation.enabled ? "Pause" : "Resume"} collection ${operation.device} ${operation.id}`} onClick={() => onToggle(operation)}>{operation.enabled ? <Pause size={13} /> : <Play size={13} />}</button></TableCell></>}
     </TableRow>)}</TableBody>
     </Table>
@@ -258,7 +303,7 @@ export function IpSlaDashboard() {
   const scoped = operations.filter(operation => (site === "All sites" || operation.site === site) && (type === "All types" || operation.type === type) && `${operation.device} ${operation.id} ${operation.source} ${operation.targetCi.name} ${operation.target}`.toLowerCase().includes(query.toLowerCase()));
   const filtered = scoped.filter(operation => status === "All statuses" || health(operation) === status);
   const counts = healthOrder.map(name => ({ name, value: scoped.filter(operation => health(operation) === name).length }));
-  const issues = filtered.filter(operation => health(operation) !== "Healthy" && health(operation) !== "Paused");
+  const alerts = filtered.filter(operation => health(operation) !== "Healthy" && health(operation) !== "Paused").map(buildAlert).sort((left, right) => right.time - left.time);
   const ranked = filtered.filter(usable).sort((left, right) => (right.rtt ?? 0) - (left.rtt ?? 0)).slice(0, 5);
   const selected = operations.find(operation => operation.key === selectedKey);
   const chartOperations = selected ? [selected] : filtered;
@@ -315,7 +360,7 @@ export function IpSlaDashboard() {
             <section className="sla-summary" aria-label="Operation summary">
               {[{ name: "Monitored operations", value: scoped.length }, ...counts].map(item => <button className="sla-stat" key={item.name} aria-label={`Filter ${item.name}`} aria-pressed={status === (item.name === "Monitored operations" ? "All statuses" : item.name)} onClick={() => setStatus(item.name === "Monitored operations" || status === item.name ? "All statuses" : item.name)}><span>{item.name}</span><strong>{item.value}</strong></button>)}
             </section>
-            <section className="sla-panel" aria-label="Operations with issues"><div className="sla-panel-title"><h3>Operations with issues <span className="sla-count">{issues.length}</span></h3><span>Quality, collection & freshness</span></div><OperationTable operations={issues} mode="issues" onSelect={setSelectedKey} onToggle={toggleCollection} />{!issues.length && <div className="sla-empty"><Check size={17} />No issues in this scope</div>}</section>
+            <section className="sla-panel" aria-label="Alerts"><div className="sla-panel-title"><h3>Alerts <span className="sla-count">{alerts.length}</span></h3><span>Newest first · quality, collection & freshness</span></div>{alerts.length > 0 && <AlertTable alerts={alerts} end={end} onSelect={setSelectedKey} />}{!alerts.length && <div className="sla-empty"><Check size={17} />No alerts in this scope</div>}</section>
             </DashboardSection>
           </>}
 
