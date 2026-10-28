@@ -886,34 +886,268 @@
   background: #f8f9fb;
   font-size: 12px;
 }
-.np-dashboard-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-bottom: 1px solid var(--np-border);
-  padding: 10px 0 24px;
-  gap: 20px;
+.np-dash {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  overflow: auto;
+  background: #f3f3f5;
+  font-size: 14px;
+  color: #303133;
 }
-.np-dashboard-stats > div {
-  border-left: 2px solid #d6eaff;
-  padding-left: 15px;
+.np-dash-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 40px;
+}
+.np-dash-toolbar h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.np-dash-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #606266;
+}
+.np-dash-actions > span {
+  font-size: 12px;
+}
+.np-dash select {
+  height: 28px;
+  padding: 0 24px 0 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 2px;
+  background: #fff;
+  font-size: 14px;
+}
+.np-dash-actions > button {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dcdfe6;
+  border-radius: 2px;
+  background: #fff;
+  color: #606266;
+}
+.np-dash-section {
+  min-width: 0;
+  margin-bottom: 10px;
+}
+.np-dash-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+  min-height: 24px;
+}
+.np-dash-heading > span {
+  margin-left: auto;
+  font-size: 12px;
+  color: #909399;
+}
+.np-dash-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.np-dash-toggle h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.np-dash-toggle[data-state="closed"] > svg {
+  transform: rotate(-90deg);
+}
+.np-dash-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.np-dash-stat {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
   gap: 8px;
+  height: 104px;
+  min-width: 0;
+  padding: 9px 8px 18px;
+  background: #fff;
+  color: #303133;
+  border: 0;
+  border-radius: 1px;
+  box-shadow: 0 2px 4px #0000000a;
+  text-align: left;
 }
-.np-dashboard-stats strong {
-  font-size: 25px;
+.np-dash-stat > span {
+  font-size: 14px;
+  line-height: 20px;
   font-weight: 500;
 }
-.np-dashboard-stats span {
-  color: #808c96;
+.np-dash-stat > strong {
+  display: block;
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 500;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
-.np-dashboard-row {
+.np-app .np-dash-stat:disabled {
+  color: #303133;
+  opacity: 1;
+  cursor: default;
+}
+.np-dash-stat:not(:disabled):hover {
+  box-shadow: 0 2px 4px #0000000a, inset 0 0 0 1px #b3d8ff;
+}
+.np-dash-stat[aria-pressed="true"] {
+  box-shadow: 0 2px 4px #0000000a, inset 0 0 0 1px #409eff;
+}
+.np-dash-trends {
   display: grid;
-  grid-template-columns: 180px 1fr 60px 70px 85px;
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.np-dash-panel {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px 8px;
+  background: #fff;
+  border-radius: 1px;
+  box-shadow: 0 2px 4px #00000008;
+}
+.np-dash-panel-title {
+  min-height: 39px;
+  padding: 8px 0;
+  display: flex;
   align-items: center;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--np-border);
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.np-dash-panel-title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.np-dash-panel-title > span {
+  font-size: 12px;
+  color: #909399;
+}
+.np-dash-panel-title > strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.np-dash-count {
+  color: #909399;
+  font-size: 12px;
+  font-weight: 400;
+}
+.np-dash-chart {
+  height: 210px;
+  width: 100%;
+  aspect-ratio: auto;
+  padding: 4px 0 2px;
+}
+.np-dash-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 90px;
+  padding: 16px;
+  color: #8b99aa;
+  font-size: 13px;
+}
+.np-dash-table-wrap {
+  overflow: auto;
+  border: 1px solid #ebeef1;
+}
+.np-dash-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  white-space: nowrap;
+}
+.np-dash-table th {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  color: #606266;
+  text-align: left;
+  font-weight: 400;
+  height: 32px;
+  padding: 0 12px;
+  border-bottom: 1px solid #ebeef1;
+}
+.np-dash-table td {
+  padding: 6px 12px;
+  line-height: 22px;
+  border-bottom: 1px solid #f0f2f6;
+  vertical-align: middle;
+}
+.np-dash-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.np-dash-table tbody tr:hover {
+  background: #f5f7fa;
+}
+.np-dash-table td small {
+  display: block;
+  color: #94a0af;
+  font-size: 12px;
+}
+.np-dash-ci {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.np-dash-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: #268ded;
+  font-size: 14px;
+}
+.np-dash-link:hover {
+  text-decoration: underline;
+}
+.np-dash-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.np-dash-badge > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.np-dash-reach {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.np-dash-reach .np-reach-bar {
+  width: 120px;
+}
+.np-dash-reach strong {
+  font-weight: 400;
+  min-width: 48px;
 }
 .np-reach-bar {
   background: #f0f3f6;
@@ -1246,19 +1480,15 @@
   .np-pagination label {
     margin-left: auto;
   }
-  .np-dashboard-stats {
-    grid-template-columns: repeat(2, 1fr);
+  .np-dash-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .np-dashboard-row {
-    grid-template-columns: 130px 1fr 50px;
-    gap: 10px;
+  .np-dash-trends {
+    grid-template-columns: 1fr;
   }
-  .np-dashboard-row > span:nth-last-child(2) {
-    display: none;
-  }
-  .np-dashboard-row > .np-blue-link {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
+  .np-dash-actions {
+    width: 100%;
+    margin-left: 0;
   }
   .np-secondary {
     padding: 15px;

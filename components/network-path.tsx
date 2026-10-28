@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
 import { CiLink } from "@/components/ci-link";
+import { NetworkPathDashboard } from "@/components/network-path-dashboard";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
@@ -688,9 +689,7 @@ export function NetworkPath() {
                       closeDetail();
                     }}
                   >
-                    {item === "Dashboards" && <Activity size={12} />}
                     {item}
-                    {item === "Dashboards" && <ChevronDown size={10} />}
                   </button>
                 ))}
               </div>
@@ -1332,42 +1331,14 @@ export function NetworkPath() {
             </section>
           )}
           {tab === "Dashboards" && (
-            <section className="np-secondary">
-              <h2>Network Path Overview</h2>
-              <div className="np-dashboard-stats">
-                {[
-                  ["Tests", tests.length],
-                  ["Reachable", tests.filter((test) => test.reach > 0).length],
-                  ["Unreachable", tests.filter((test) => !test.reach).length],
-                  [
-                    "Average RTT",
-                    `${Math.round(tests.reduce((sum, test) => sum + test.rtt, 0) / (tests.length || 1))} ms`,
-                  ],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                  </div>
-                ))}
-              </div>
-              <h3>Destination Performance</h3>
-              {tests.map((test) => (
-                <div className="np-dashboard-row" key={test.id}>
-                  <Destination name={test.destination} />
-                  <div className="np-reach-bar">
-                    <span style={{ width: `${test.reach}%` }} />
-                  </div>
-                  <strong>{test.reach}%</strong>
-                  <span>{test.rtt} ms</span>
-                  <button
-                    className="np-blue-link"
-                    onClick={() => openDetail(test)}
-                  >
-                    View Path <ArrowRight size={12} />
-                  </button>
-                </div>
-              ))}
-            </section>
+            <NetworkPathDashboard
+              tests={tests}
+              renderDestination={(name) => <Destination name={name} />}
+              onOpen={(id) => {
+                const test = tests.find((item) => item.id === id);
+                if (test) openDetail(test);
+              }}
+            />
           )}
         </main>
       </div>
