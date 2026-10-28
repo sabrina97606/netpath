@@ -311,65 +311,49 @@
   padding: 8px 14px 10px;
   flex-wrap: wrap;
 }
-.np-searchbox {
-  display: flex;
-  align-items: stretch;
-  flex: 1.4 1 0;
-  min-width: 440px;
-  height: 32px;
-  font-size: 14px;
-}
-.np-label {
+.np-search {
   display: flex;
   align-items: center;
-  padding: 0 10px;
-  background: #f0f2f5;
   border: 1px solid #d9dfe8;
-  border-right: 0;
-  color: #3b4651;
-  white-space: nowrap;
-}
-.np-app .np-searchbox select {
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid #d9dfe8;
-  border-right: 0;
-  border-radius: 0;
-  background-color: #fff;
-  color: #3b4651;
-  font-size: 14px;
-}
-.np-app .np-searchbox .np-field-select {
-  width: 136px;
-}
-.np-app .np-searchbox .np-op-select {
-  width: 100px;
-}
-.np-app .np-searchbox input {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid #d9dfe8;
-  border-radius: 0;
+  border-radius: 2px;
   background: #fff;
+  width: 155px;
+  padding-left: 7px;
+  height: 32px;
+}
+.np-search input {
+  border: 0;
+  width: 100%;
+  padding: 4px;
+  background: transparent;
   font-size: 14px;
 }
-.np-app .np-searchbox input::placeholder {
-  color: #a8b0b9;
+.np-search .np-icon {
+  border-left: 1px solid #d9dfe8;
+  background: #f0f6ff;
 }
-.np-app .np-searchbox .np-search-submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  border: 1px solid #1890ff;
-  border-radius: 0 2px 2px 0;
-  background: #1890ff;
-  color: #fff;
+.np-filter {
+  position: relative;
+  width: 134px;
+  padding-top: 14px;
+  font-size: 13px;
 }
-.np-app .np-searchbox .np-search-submit:hover {
-  background: #40a9ff;
+.np-filter > span {
+  position: absolute;
+  top: -3px;
+  left: 5px;
+  background: #f8f9fb;
+  color: #7d8690;
+  white-space: nowrap;
+  max-width: 125px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.np-filter select {
+  width: 100%;
+  height: 28px;
+  padding: 0 5px;
+  color: #85909a;
 }
 .np-facet-menu {
   width: 240px;
@@ -405,11 +389,12 @@
 .np-view-options {
   display: flex;
   align-items: center;
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 280px;
+  min-width: 280px;
   font-size: 14px;
 }
 .np-view-options > span {
+  white-space: nowrap;
   background: #eaedf2;
   border: 1px solid #d6dde7;
   border-right: 0;
@@ -1455,7 +1440,6 @@
     padding: 10px 8px;
     gap: 8px;
   }
-  .np-searchbox,
   .np-view-options {
     flex: 1 1 100%;
     min-width: 0;

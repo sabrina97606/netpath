@@ -26,6 +26,7 @@ import {
   Cloud,
   Database,
   Download,
+  Filter,
   Globe,
   Home,
   Layers,
@@ -97,22 +98,7 @@ function AddFacetMenu({
     </Popover>
   );
 }
-const searchFields = [
-  "All Fields",
-  "Source Display Name",
-  "Destination Hostname",
-  "Destination Port",
-  "Test Run Type",
-  "Test ID",
-  "Tags",
-];
-const searchOperators = ["Contains", "Equals", "Starts with"];
-const matchesSearch = (
-  test: Test,
-  field: string,
-  operator: string,
-  keyword: string,
-) => {
+const matchesSearch = (test: Test, keyword: string) => {
   const needle = keyword.trim().toLowerCase();
   if (!needle) return true;
   const values: Record<string, string[]> = {
@@ -123,16 +109,9 @@ const matchesSearch = (
     "Test ID": [test.id],
     Tags: [`env:${test.env}`, `site:${test.site}`, `test_id:${test.id}`],
   };
-  const candidates =
-    field === "All Fields"
-      ? Object.values(values).flat()
-      : (values[field] ?? []);
-  return candidates.some((candidate) => {
-    const text = candidate.toLowerCase();
-    if (operator === "Equals") return text === needle;
-    if (operator === "Starts with") return text.startsWith(needle);
-    return text.includes(needle);
-  });
+  return Object.values(values)
+    .flat()
+    .some((candidate) => candidate.toLowerCase().includes(needle));
 };
 const facetGroups = [
   { name: "PATH", fields: ["Origin", "Protocol"] },
@@ -281,9 +260,6 @@ export function NetworkPath() {
   const [view, setView] = useState("Grouped Tests");
   const [groupBy, setGroupBy] = useState("source");
   const [query, setQuery] = useState("");
-  const [queryDraft, setQueryDraft] = useState("");
-  const [searchField, setSearchField] = useState("All Fields");
-  const [searchOp, setSearchOp] = useState("Contains");
   const [source, setSource] = useState("All");
   const [destination, setDestination] = useState("All");
   const [port, setPort] = useState("All");
@@ -380,7 +356,7 @@ export function NetworkPath() {
         (testId === "All" || test.id === testId) &&
         (status === "All Tests" ||
           (status === "Reachable" ? test.reach > 0 : test.reach === 0)) &&
-        matchesSearch(test, searchField, searchOp, query),
+        matchesSearch(test, query),
     )
     .sort((left, right) =>
       sortDirection
@@ -473,7 +449,6 @@ export function NetworkPath() {
     }
     const config = JSON.parse(stored);
     setQuery(config.query);
-    setQueryDraft(config.query);
     setSource(config.source);
     setDestination(config.destination);
     setPort(config.port || "All");
@@ -787,52 +762,82 @@ export function NetworkPath() {
           {tab === "Explorer" && !detailOpen && (
             <>
               <section className="np-filterbar">
-                <form
-                  className="np-searchbox"
-                  role="search"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    setQuery(queryDraft);
-                    resetPage();
-                  }}
-                >
-                  <span className="np-label">Search</span>
-                  <select
-                    aria-label="Search field"
-                    className="np-field-select"
-                    value={searchField}
-                    onChange={(event) => setSearchField(event.target.value)}
-                  >
-                    {searchFields.map((item) => (
-                      <option key={item}>{item}</option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Search operator"
-                    className="np-op-select"
-                    value={searchOp}
-                    onChange={(event) => setSearchOp(event.target.value)}
-                  >
-                    {searchOperators.map((item) => (
-                      <option key={item}>{item}</option>
-                    ))}
-                  </select>
+                <div className="np-search">
+                  <Search size={13} />
                   <input
                     aria-label="Search tests"
-                    placeholder="Please enter"
-                    value={queryDraft}
-                    onChange={(event) => setQueryDraft(event.target.value)}
+                    placeholder="Search for"
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      resetPage();
+                    }}
                   />
-                  <button
-                    type="submit"
-                    className="np-search-submit"
-                    aria-label="Search"
+                  <IconButton
+                    label="Show facets"
+                    onClick={() => {
+                      setCollapsed([]);
+                      setFacetQuery("");
+                    }}
                   >
-                    <Search size={14} />
-                  </button>
-                </form>
+                    <Filter size={12} />
+                  </IconButton>
+                </div>
+                {[
+                  {
+                    label: "Source Display Name",
+                    value: source,
+                    setter: setSource,
+                    options: [...new Set(tests.map((test) => test.source))],
+                  },
+                  {
+                    label: "Destination Hostname",
+                    value: destination,
+                    setter: setDestination,
+                    options: [
+                      ...new Set(tests.map((test) => test.destination)),
+                    ],
+                  },
+                  {
+                    label: "Destination Port",
+                    value: port,
+                    setter: setPort,
+                    options: [
+                      ...new Set(tests.map((test) => test.port || "-")),
+                    ],
+                  },
+                  {
+                    label: "Test Run Type",
+                    value: protocol,
+                    setter: setProtocol,
+                    options: ["TCP", "UDP", "ICMP"],
+                  },
+                  {
+                    label: "Test ID",
+                    value: testId,
+                    setter: setTestId,
+                    options: tests.map((test) => test.id),
+                  },
+                ].map((filter) => (
+                  <label className="np-filter" key={filter.label}>
+                    <span>{filter.label}</span>
+                    <select
+                      aria-label={filter.label}
+                      value={filter.value}
+                      onChange={(event) => {
+                        filter.setter(event.target.value);
+                        resetPage();
+                      }}
+                    >
+                      <option>All</option>
+                      {filter.options.map((option) => (
+                        <option key={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
                 <div className="np-view-options">
-                  <span>Group</span>
+                  <span>View By</span>
                   <Select
                     value={view === "Individual Tests" ? "individual" : groupBy}
                     onValueChange={(value) => {
@@ -847,9 +852,9 @@ export function NetworkPath() {
                   >
                     <SelectTrigger
                       className="np-view-trigger"
-                      aria-label="Group"
+                      aria-label="View By"
                     >
-                      <SelectValue placeholder="please choose the group">
+                      <SelectValue>
                         {view === "Individual Tests"
                           ? "Individual Tests"
                           : groupBy === "destination"
@@ -879,9 +884,6 @@ export function NetworkPath() {
                   className="np-blue-link"
                   onClick={() => {
                     setQuery("");
-                    setQueryDraft("");
-                    setSearchField("All Fields");
-                    setSearchOp("Contains");
                     setSource("All");
                     setDestination("All");
                     setPort("All");
@@ -1215,24 +1217,24 @@ export function NetworkPath() {
                     )}
                   </div>
                   <div className="np-pagination">
-                    <div>
+                    <label>
                       Show top{" "}
-                      <div className="np-segment">
-                        {[100, 1000].map((value) => (
-                          <button
-                            className={limit === value ? "active" : ""}
-                            key={value}
-                            onClick={() => {
-                              setLimit(value);
-                              resetPage();
-                            }}
-                          >
+                      <select
+                        aria-label="Show top results"
+                        value={limit}
+                        onChange={(event) => {
+                          setLimit(Number(event.target.value));
+                          resetPage();
+                        }}
+                      >
+                        {[100, 500, 1000].map((value) => (
+                          <option key={value} value={value}>
                             {value}
-                          </button>
+                          </option>
                         ))}
-                      </div>{" "}
+                      </select>{" "}
                       results
-                    </div>
+                    </label>
                     <span className="np-update">
                       {paused ? "Paused" : `Updated: ${refreshed}`}
                     </span>
@@ -1257,7 +1259,17 @@ export function NetworkPath() {
                     >
                       <ChevronLeft size={12} />
                     </IconButton>
-                    <span>{page}</span>
+                    <span>
+                      {page} /{" "}
+                      {Math.max(
+                        1,
+                        Math.ceil(
+                          (view === "Grouped Tests"
+                            ? groups.length
+                            : filtered.length) / pageSize,
+                        ),
+                      )}
+                    </span>
                     <IconButton
                       label="Next page"
                       onClick={() =>

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { NetworkPathAnalysis } from "./network-path-analysis";
+import { CiLink } from "@/components/ci-link";
+import { cmdbByIp, cmdbByName } from "@/lib/cmdb";
 import {
   buildPathSnapshot,
   type PathIssue,
@@ -1129,6 +1131,12 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                 <div className="npd-inspector-hop">
                   <Network size={20} />
                   <strong>{inspectedNode.data.label}</strong>
+                  <CiLink
+                    ci={
+                      cmdbByName.get(inspectedNode.data.label) ??
+                      cmdbByIp.get(inspectedNode.data.ip ?? "")
+                    }
+                  />
                 </div>
                 {renderObservations(inspectedNode)}
                 {[
