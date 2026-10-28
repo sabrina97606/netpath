@@ -4,7 +4,7 @@
 .sla-main { background: #f3f3f5; }
 .sla-module-header { display: flex; align-items: center; flex-wrap: wrap; flex-shrink: 0; gap: 12px; padding: 4px 8px; min-height: 48px; background: #f3f3f5; }
 .sla-module-header h1 { font-size: 16px; font-weight: 600; margin: 0; }
-.sla-demo { font-size: 12px; color: var(--sla-muted); }
+
 .sla-header-actions { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .sla-range-label { color: #606266; font-size: 12px; }
 .sla-app select { height: 28px; padding: 0 24px 0 8px; border-color: var(--sla-control-border); border-radius: 2px; font-size: 14px; }
