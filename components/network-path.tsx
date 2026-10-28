@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
 import { CiLink } from "@/components/ci-link";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
   Select,
@@ -24,7 +25,6 @@ import {
   Cloud,
   Database,
   Download,
-  Filter,
   Globe,
   Home,
   Layers,
@@ -63,6 +63,76 @@ const initialTests: Test[] = [
   { id: "b3159c0d7e2a46f1", source: "SH-DC1-DMZ-FW01", destination: ip("HZ-CAMPUS-EDGE-FW01"), protocol: "TCP", port: "22", reach: 99.9, rtt: 9, site: "sh-dc1", env: "production" },
   { id: "c9e21b84a05d3f67", source: "BJ-HQ-CORE-SW01", destination: ip("WH-CAMPUS-CORE-SW01"), protocol: "TCP", port: "161", reach: 0, rtt: 0, site: "bj-hq", env: "production" },
 ];
+function AddFacetMenu({
+  onPick,
+  children,
+}: {
+  onPick: (field: string) => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="np-facet-menu">
+        {facetGroups.map((group) => (
+          <div key={group.name}>
+            <div className="np-facet-menu-group">{group.name}</div>
+            {group.fields.map((field) => (
+              <button
+                key={field}
+                type="button"
+                onClick={() => {
+                  onPick(field);
+                  setOpen(false);
+                }}
+              >
+                {field}
+              </button>
+            ))}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+const searchFields = [
+  "All Fields",
+  "Source Display Name",
+  "Destination Hostname",
+  "Destination Port",
+  "Test Run Type",
+  "Test ID",
+  "Tags",
+];
+const searchOperators = ["Contains", "Equals", "Starts with"];
+const matchesSearch = (
+  test: Test,
+  field: string,
+  operator: string,
+  keyword: string,
+) => {
+  const needle = keyword.trim().toLowerCase();
+  if (!needle) return true;
+  const values: Record<string, string[]> = {
+    "Source Display Name": [test.source],
+    "Destination Hostname": [test.destination],
+    "Destination Port": [test.port || "-"],
+    "Test Run Type": [test.protocol],
+    "Test ID": [test.id],
+    Tags: [`env:${test.env}`, `site:${test.site}`, `test_id:${test.id}`],
+  };
+  const candidates =
+    field === "All Fields"
+      ? Object.values(values).flat()
+      : (values[field] ?? []);
+  return candidates.some((candidate) => {
+    const text = candidate.toLowerCase();
+    if (operator === "Equals") return text === needle;
+    if (operator === "Starts with") return text.startsWith(needle);
+    return text.includes(needle);
+  });
+};
 const facetGroups = [
   { name: "PATH", fields: ["Origin", "Protocol"] },
   {
@@ -210,6 +280,9 @@ export function NetworkPath() {
   const [view, setView] = useState("Grouped Tests");
   const [groupBy, setGroupBy] = useState("source");
   const [query, setQuery] = useState("");
+  const [queryDraft, setQueryDraft] = useState("");
+  const [searchField, setSearchField] = useState("All Fields");
+  const [searchOp, setSearchOp] = useState("Contains");
   const [source, setSource] = useState("All");
   const [destination, setDestination] = useState("All");
   const [port, setPort] = useState("All");
@@ -306,9 +379,7 @@ export function NetworkPath() {
         (testId === "All" || test.id === testId) &&
         (status === "All Tests" ||
           (status === "Reachable" ? test.reach > 0 : test.reach === 0)) &&
-        `${test.source} ${test.destination} ${test.id} ${test.env} ${test.site}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
+        matchesSearch(test, searchField, searchOp, query),
     )
     .sort((left, right) =>
       sortDirection
@@ -350,6 +421,19 @@ export function NetworkPath() {
     history.replaceState(null, "", url);
   };
   const resetPage = () => setPage(1);
+  const revealFacet = (field: string) => {
+    const group = facetGroups.find((item) => item.fields.includes(field));
+    setFacetQuery("");
+    setCollapsed((current) => current.filter((name) => name !== group?.name));
+    setOpenFacet(field);
+    setTimeout(
+      () =>
+        document
+          .querySelector(`[data-facet="${field}"]`)
+          ?.scrollIntoView({ block: "nearest" }),
+      50,
+    );
+  };
   const exportTests = () => {
     const blob = new Blob([JSON.stringify(filtered, null, 2)], {
       type: "application/json",
@@ -388,6 +472,7 @@ export function NetworkPath() {
     }
     const config = JSON.parse(stored);
     setQuery(config.query);
+    setQueryDraft(config.query);
     setSource(config.source);
     setDestination(config.destination);
     setPort(config.port || "All");
@@ -592,7 +677,6 @@ export function NetworkPath() {
               My View
             </button>
             <h1>Network Path</h1>
-            <small className="np-demo">Demo data</small>
             <div className="np-module-tabs">
               <div>
                 {["Explorer", "Dashboards"].map((item) => (
@@ -704,82 +788,52 @@ export function NetworkPath() {
           {tab === "Explorer" && !detailOpen && (
             <>
               <section className="np-filterbar">
-                <div className="np-search">
-                  <Search size={13} />
+                <form
+                  className="np-searchbox"
+                  role="search"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setQuery(queryDraft);
+                    resetPage();
+                  }}
+                >
+                  <span className="np-label">Search</span>
+                  <select
+                    aria-label="Search field"
+                    className="np-field-select"
+                    value={searchField}
+                    onChange={(event) => setSearchField(event.target.value)}
+                  >
+                    {searchFields.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Search operator"
+                    className="np-op-select"
+                    value={searchOp}
+                    onChange={(event) => setSearchOp(event.target.value)}
+                  >
+                    {searchOperators.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
                   <input
                     aria-label="Search tests"
-                    placeholder="Search for"
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
-                      resetPage();
-                    }}
+                    placeholder="Please enter"
+                    value={queryDraft}
+                    onChange={(event) => setQueryDraft(event.target.value)}
                   />
-                  <IconButton
-                    label="Show facets"
-                    onClick={() => {
-                      setCollapsed([]);
-                      setFacetQuery("");
-                    }}
+                  <button
+                    type="submit"
+                    className="np-search-submit"
+                    aria-label="Search"
                   >
-                    <Filter size={12} />
-                  </IconButton>
-                </div>
-                {[
-                  {
-                    label: "Source Display Name",
-                    value: source,
-                    setter: setSource,
-                    options: [...new Set(tests.map((test) => test.source))],
-                  },
-                  {
-                    label: "Destination Hostname",
-                    value: destination,
-                    setter: setDestination,
-                    options: [
-                      ...new Set(tests.map((test) => test.destination)),
-                    ],
-                  },
-                  {
-                    label: "Destination Port",
-                    value: port,
-                    setter: setPort,
-                    options: [
-                      ...new Set(tests.map((test) => test.port || "-")),
-                    ],
-                  },
-                  {
-                    label: "Test Run Type",
-                    value: protocol,
-                    setter: setProtocol,
-                    options: ["TCP", "UDP", "ICMP"],
-                  },
-                  {
-                    label: "Test ID",
-                    value: testId,
-                    setter: setTestId,
-                    options: tests.map((test) => test.id),
-                  },
-                ].map((filter) => (
-                  <label className="np-filter" key={filter.label}>
-                    <span>{filter.label}</span>
-                    <select
-                      aria-label={filter.label}
-                      value={filter.value}
-                      onChange={(event) => {
-                        filter.setter(event.target.value);
-                        resetPage();
-                      }}
-                    >
-                      <option>All</option>
-                      {filter.options.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
+                    <Search size={14} />
+                  </button>
+                </form>
                 <div className="np-view-options">
-                  <span>View By</span>
+                  <span>Group</span>
                   <Select
                     value={view === "Individual Tests" ? "individual" : groupBy}
                     onValueChange={(value) => {
@@ -794,12 +848,14 @@ export function NetworkPath() {
                   >
                     <SelectTrigger
                       className="np-view-trigger"
-                      aria-label="View By"
+                      aria-label="Group"
                     >
-                      <SelectValue>
+                      <SelectValue placeholder="please choose the group">
                         {view === "Individual Tests"
                           ? "Individual Tests"
-                          : "Group by tags"}
+                          : groupBy === "destination"
+                            ? "destination.hostname"
+                            : "source.display_name × destination.hostname"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="np-view-menu">
@@ -815,19 +871,18 @@ export function NetworkPath() {
                     </SelectContent>
                   </Select>
                 </div>
-                <button
-                  className="np-blue-link"
-                  onClick={() => {
-                    setOpenFacet("Protocol");
-                    setCollapsed([]);
-                  }}
-                >
-                  <Plus size={13} /> Add Facet
-                </button>
+                <AddFacetMenu onPick={revealFacet}>
+                  <button type="button" className="np-blue-link">
+                    <Plus size={13} /> Add Facet
+                  </button>
+                </AddFacetMenu>
                 <button
                   className="np-blue-link"
                   onClick={() => {
                     setQuery("");
+                    setQueryDraft("");
+                    setSearchField("All Fields");
+                    setSearchOp("Contains");
                     setSource("All");
                     setDestination("All");
                     setPort("All");
@@ -863,14 +918,11 @@ export function NetworkPath() {
                         ).length
                     }{" "}
                     of 20{" "}
-                    <button
-                      onClick={() => {
-                        setOpenFacet("Protocol");
-                        setCollapsed([]);
-                      }}
-                    >
-                      <Plus size={12} /> Add
-                    </button>
+                    <AddFacetMenu onPick={revealFacet}>
+                      <button type="button">
+                        <Plus size={12} /> Add
+                      </button>
+                    </AddFacetMenu>
                   </div>
                   {facetGroups.map((group) => (
                     <div key={group.name}>
@@ -902,6 +954,7 @@ export function NetworkPath() {
                             <div key={field}>
                               <button
                                 className="np-facet-field"
+                                data-facet={field}
                                 onClick={() =>
                                   setOpenFacet(
                                     openFacet === field ? null : field,
