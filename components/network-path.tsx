@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
+import { CiLink } from "@/components/ci-link";
+import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
   Select,
   SelectContent,
@@ -52,51 +54,14 @@ type Test = {
   env: string;
   interval?: string;
 };
+const ip = (name: string) => cmdbDevice(name).ip;
 const initialTests: Test[] = [
-  {
-    id: "70de870cc48fbeaf",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "api.datadoghq.com",
-    protocol: "TCP",
-    port: "443",
-    reach: 90.8,
-    rtt: 227,
-    site: "hong-kong",
-    env: "simulation",
-  },
-  {
-    id: "7d0e870cc48fbeaf",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "8.8.8.8",
-    protocol: "UDP",
-    port: "",
-    reach: 86.5,
-    rtt: 177,
-    site: "hong-kong",
-    env: "simulation",
-  },
-  {
-    id: "4fba40ec9c4d24df",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "1.1.1.1",
-    protocol: "UDP",
-    port: "",
-    reach: 99.1,
-    rtt: 84,
-    site: "hong-kong",
-    env: "simulation",
-  },
-  {
-    id: "a80246de490bb32c",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "10.0.0.10",
-    protocol: "TCP",
-    port: "80",
-    reach: 0,
-    rtt: 0,
-    site: "hong-kong",
-    env: "simulation",
-  },
+  { id: "70de870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "TCP", port: "443", reach: 99.8, rtt: 23, site: "sh-dc1", env: "production" },
+  { id: "7d0e870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("SZ-DC1-CORE-SW01"), protocol: "UDP", port: "", reach: 99.6, rtt: 34, site: "sh-dc1", env: "production" },
+  { id: "4fba40ec9c4d24df", source: "BJ-HQ-EDGE-FW01", destination: ip("SH-DC1-DMZ-FW01"), protocol: "TCP", port: "443", reach: 98.9, rtt: 27, site: "bj-hq", env: "production" },
+  { id: "a80246de490bb32c", source: "GZ-HQ-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "UDP", port: "", reach: 97.4, rtt: 41, site: "gz-hq", env: "production" },
+  { id: "b3159c0d7e2a46f1", source: "SH-DC1-DMZ-FW01", destination: ip("HZ-CAMPUS-EDGE-FW01"), protocol: "TCP", port: "22", reach: 99.9, rtt: 9, site: "sh-dc1", env: "production" },
+  { id: "c9e21b84a05d3f67", source: "BJ-HQ-CORE-SW01", destination: ip("WH-CAMPUS-CORE-SW01"), protocol: "TCP", port: "161", reach: 0, rtt: 0, site: "bj-hq", env: "production" },
 ];
 const facetGroups = [
   { name: "PATH", fields: ["Origin", "Protocol"] },
@@ -218,11 +183,23 @@ function Sparkline({
 }
 
 function Destination({ name }: { name: string }) {
+  const ci = cmdbByIp.get(name) ?? cmdbByName.get(name);
   return (
     <span className="np-destination">
-      {name.startsWith("10.") ? <Server size={12} /> : <Globe size={12} />}
+      {ci ? <Server size={12} /> : <Globe size={12} />}
       {name}
+      {ci && <small className="np-ci-name">{ci.name}</small>}
+      <CiLink ci={ci} />
     </span>
+  );
+}
+
+function SourceName({ name }: { name: string }) {
+  return (
+    <>
+      {name}
+      <CiLink ci={cmdbByName.get(name)} />
+    </>
   );
 }
 
@@ -445,7 +422,7 @@ export function NetworkPath() {
       />
       <span className={`np-status-line ${test.reach ? "" : "down"}`} />
       <button className="np-source-link" onClick={() => openDetail(test)}>
-        {test.source}
+        <SourceName name={test.source} />
       </button>
       <ArrowRight size={14} />
       <button className="np-link" onClick={() => openDetail(test)}>
@@ -1134,7 +1111,7 @@ export function NetworkPath() {
                                   onClick={() => openDetail(test)}
                                 >
                                   {groupBy === "source"
-                                    ? test.source
+                                    ? <SourceName name={test.source} />
                                     : `${items.length} source${items.length > 1 ? "s" : ""}`}
                                 </button>
                                 <button
@@ -1276,7 +1253,7 @@ export function NetworkPath() {
                       className="np-source-link"
                       onClick={() => openDetail(test)}
                     >
-                      {test.source}
+                      <SourceName name={test.source} />
                       <small>{test.id}</small>
                     </button>
                     <Destination name={test.destination} />
@@ -1402,8 +1379,8 @@ export function NetworkPath() {
                     port: newProtocol === "ICMP" ? "" : newPort,
                     reach: 0,
                     rtt: 0,
-                    site: "hong-kong",
-                    env: "simulation",
+                    site: "sh-dc1",
+                    env: "production",
                     interval: newInterval,
                   };
                   setTests([...tests, created]);
@@ -1474,7 +1451,7 @@ export function NetworkPath() {
                 <label>
                   Tags
                   <input
-                    defaultValue="env:simulation, site:hong-kong"
+                    defaultValue="env:production, site:sh-dc1"
                     readOnly
                   />
                 </label>

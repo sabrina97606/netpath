@@ -592,6 +592,10 @@
   padding: 2px 6px;
   font-weight: 400;
 }
+.np-ci-name {
+  color: #909399;
+  font-size: 11px;
+}
 .np-metric {
   display: flex;
   align-items: center;
