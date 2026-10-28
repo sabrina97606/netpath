@@ -700,18 +700,16 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           {
             name: "Path View",
             subtitle: "Network topology visualization",
-            icon: Network,
           },
           {
             name: "Analysis",
             subtitle: "Hop-to-hop metric overview",
-            icon: Activity,
           },
         ].map((item) => (
           <button
             role="tab"
             aria-selected={activeTab === item.name}
-            aria-label={item.name}
+            title={item.subtitle}
             className={activeTab === item.name ? "active" : ""}
             key={item.name}
             onClick={() => {
@@ -719,11 +717,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               setQuery("");
             }}
           >
-            <span>
-              <item.icon size={13} />
-              {item.name}
-            </span>
-            <small>{item.subtitle}</small>
+            {item.name}
           </button>
         ))}
       </div>
