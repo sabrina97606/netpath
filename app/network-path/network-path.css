@@ -186,7 +186,7 @@
   border-bottom: 1px solid var(--np-border);
 }
 .np-module-header h1 {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   margin-left: 0;
   white-space: nowrap;
@@ -200,8 +200,8 @@
   display: flex;
   align-items: center;
   border-bottom: 2px solid var(--np-blue);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
 }
 .np-demo {
   margin-left: 0;
@@ -223,14 +223,14 @@
 .np-module-tabs > div > button {
   position: relative;
   padding: 8px 14px 4px;
-  font-size: 13px;
+  font-size: 14px;
   border-bottom: 2px solid transparent;
 }
 .np-module-tabs > div > button.active {
   color: var(--np-blue);
   border-color: var(--np-blue);
   background: #f8fbff;
-  font-weight: 600;
+  font-weight: 500;
 }
 .np-module-tabs small {
   position: absolute;
@@ -472,22 +472,23 @@
   color: var(--np-blue);
 }
 .np-app .np-facet-group {
-  background: #e9edf3;
+  background: #f5f7fa;
   border-radius: 2px;
-  height: 28px;
+  height: 32px;
   width: 100%;
   justify-content: flex-start;
-  font-size: 12px;
-  color: #6c7884;
-  padding: 0 7px;
+  font-size: 13px;
+  color: #606266;
+  padding: 0 8px;
 }
 .np-app .np-facet-field {
   width: 100%;
-  padding: 7px 6px;
-  border-bottom: 1px solid var(--np-border);
-  font-size: 13px;
+  padding: 9px 8px;
+  border-bottom: 1px solid #ebeef5;
+  font-size: 14px;
   justify-content: flex-start;
-  font-weight: 600;
+  font-weight: 400;
+  color: #303133;
   text-align: left;
 }
 .np-facet-field > span {
@@ -507,8 +508,8 @@
   display: flex;
   width: 100%;
   justify-content: space-between;
-  font-size: 12px;
-  padding: 5px;
+  font-size: 13px;
+  padding: 6px 5px;
   text-align: left;
   overflow-wrap: anywhere;
 }
@@ -524,8 +525,8 @@
   align-items: center;
   gap: 5px;
   margin-bottom: 12px;
-  min-height: 28px;
-  font-size: 12px;
+  min-height: 32px;
+  font-size: 13px;
   flex-wrap: wrap;
 }
 .np-results-toolbar > span {
@@ -534,7 +535,8 @@
 }
 .np-table-scroll {
   overflow: auto;
-  border: 1px solid var(--np-border);
+  border: 0;
+  border-bottom: 1px solid #ebeef5;
 }
 .np-group-table {
   min-width: 930px;
@@ -542,10 +544,10 @@
 .np-group-caption {
   display: grid;
   grid-template-columns: 24px 32% 32% 1fr;
-  color: #8b949c;
+  color: #909399;
   font-size: 12px;
-  border-bottom: 1px solid var(--np-border);
-  height: 20px;
+  background: #f5f7fa;
+  height: 26px;
   align-items: center;
   text-align: center;
 }
@@ -558,29 +560,33 @@
   align-items: center;
 }
 .np-group-header {
-  height: 28px;
-  font-size: 12px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--np-border);
+  height: 40px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #606266;
+  background: #f5f7fa;
 }
 .np-group-header > span,
 .np-group-header > button {
-  padding-left: 5px;
+  padding-left: 8px;
   justify-content: flex-start;
 }
 .np-group-row {
-  min-height: 39px;
-  border-bottom: 1px solid var(--np-border);
-  font-size: 13px;
+  min-height: 54px;
+  border-top: 1px solid #ebeef5;
+  font-size: 14px;
+}
+.np-group-row:hover {
+  background: #f5f9ff;
 }
 .np-group-row > button:not(:first-child) {
-  border-right: 1px solid var(--np-border);
   height: 100%;
   justify-content: flex-start;
-  padding: 0 6px;
+  padding: 0 8px;
 }
 .np-app .np-source-link {
-  font-weight: 600;
+  font-weight: 400;
+  color: var(--np-blue);
   text-align: left;
   justify-content: flex-start;
   overflow-wrap: anywhere;
@@ -588,11 +594,10 @@
 .np-destination {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   white-space: nowrap;
-  border: 1px solid #e5e9ef;
-  border-radius: 12px;
-  padding: 2px 6px;
+  border: 0;
+  padding: 0;
   font-weight: 400;
 }
 .np-ci-name {
@@ -607,12 +612,13 @@
   padding: 3px 10px;
 }
 .np-metric strong {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
   white-space: nowrap;
 }
 .np-spark {
   width: 78px;
-  height: 28px;
+  height: 30px;
   flex-shrink: 0;
 }
 .np-spark text {
@@ -620,6 +626,7 @@
   fill: #64727e;
 }
 .np-expanded {
+  overflow-x: auto;
   padding: 6px 10px 16px 26px;
   background: #fafbfc;
 }
@@ -627,21 +634,34 @@
 .np-test-row {
   display: grid;
   grid-template-columns:
-    18px 8px minmax(180px, 1.3fr) 24px minmax(130px, 0.95fr)
-    minmax(210px, 1.7fr) 64px 48px minmax(130px, 1fr) minmax(130px, 1fr);
+    18px 8px minmax(180px, 1.2fr) 24px minmax(240px, 1.5fr)
+    minmax(190px, 1.2fr) 84px 56px minmax(130px, 1fr) minmax(130px, 1fr);
   align-items: center;
   gap: 6px;
 }
+.np-test-row > .np-source-link,
+.np-test-row > .np-link {
+  justify-content: flex-start;
+  min-width: 0;
+}
+.np-test-row > .np-link {
+  overflow: hidden;
+}
+.np-test-header,
+.np-test-row {
+  min-width: 1180px;
+}
 .np-test-header {
-  font-size: 12px;
-  height: 22px;
-  font-weight: 600;
-  background: #f4f6f8;
+  font-size: 13px;
+  height: 32px;
+  font-weight: 400;
+  color: #606266;
+  background: #f0f2f5;
 }
 .np-test-row {
-  min-height: 39px;
+  min-height: 48px;
   font-size: 13px;
-  border-top: 1px solid var(--np-border);
+  border-top: 1px solid #ebeef5;
 }
 .np-test-row > input {
   width: 11px;
@@ -703,10 +723,10 @@
 .np-pagination {
   display: flex;
   align-items: center;
-  padding-top: 7px;
+  padding-top: 12px;
   gap: 5px;
-  font-size: 12px;
-  color: #667581;
+  font-size: 13px;
+  color: #606266;
 }
 .np-pagination > div {
   display: flex;
