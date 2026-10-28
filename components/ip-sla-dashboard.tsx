@@ -14,16 +14,21 @@ import {
 import {
   Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { baseRtt, cityOf, device as cmdbDevice, probeFeature, seeded, type CmdbDevice } from "@/lib/cmdb";
+import { CiLink } from "@/components/ci-link";
 
 type Health = "Healthy" | "Warning" | "Critical" | "Down" | "Collection error" | "Stale" | "Paused";
 type Operation = {
   key: string;
   id: string;
   device: string;
+  ci: CmdbDevice;
+  targetCi: CmdbDevice;
+  probe: string;
   source: string;
   target: string;
   site: string;
-  type: "ICMP Echo" | "UDP Jitter";
+  type: "ICMP Jitter" | "UDP Jitter";
   quality: "Healthy" | "Warning" | "Critical" | "Down";
   collection: "success" | "error";
   fresh: boolean;
@@ -41,7 +46,6 @@ const healthColors: Record<Health, string> = {
   "Collection error": "#7864aa", Stale: "#8795a7", Paused: "#b3bbc6",
 };
 const healthOrder = Object.keys(healthColors) as Health[];
-const sites = ["Shanghai", "Hong Kong", "Beijing"];
 const navigation = [
   { label: "Event", icon: Activity }, { label: "Inspection", icon: Layers },
   { label: "Biz Systems", icon: Box }, { label: "APM", icon: Workflow },
@@ -52,31 +56,95 @@ const navigation = [
   { label: "Discovery & Collection", icon: Layers }, { label: "System Definition", icon: Settings },
 ];
 
+type Scenario = Partial<Pick<Operation, "rtt" | "jitterSd" | "jitterDs" | "lossSd" | "lossDs">> & { down?: boolean; collectionError?: boolean; stale?: boolean; paused?: boolean };
+
+const sitePrefixes = ["BJ-HQ", "SH-DC1", "GZ-HQ", "SZ-DC1", "HZ-CAMPUS", "NJ-DC1", "CD-HQ", "WH-CAMPUS", "XA-DC1", "CQ-HQ"];
+const firewallPrefixes = ["BJ-HQ-EDGE", "SH-DC1-DMZ", "GZ-HQ-EDGE", "HZ-CAMPUS-EDGE", "SZ-DC1-SERVER"];
+const coreSwitch = (prefix: string, index: 1 | 2) => `${prefix}-CORE-SW0${index}`;
+const firewall = (prefix: string, index: 1 | 2) => `${prefix}-FW0${index}`;
+
+const probeSpecs: { source: string; target: string; type: Operation["type"] }[] = [
+  ...sitePrefixes.map(prefix => ({ source: coreSwitch(prefix, 1), target: coreSwitch(prefix, 2), type: "ICMP Jitter" as const })),
+  ...firewallPrefixes.map(prefix => ({ source: firewall(prefix, 1), target: firewall(prefix, 2), type: "ICMP Jitter" as const })),
+  ...sitePrefixes.filter(prefix => prefix !== "BJ-HQ").map(prefix => ({ source: coreSwitch(prefix, 1), target: coreSwitch("BJ-HQ", 1), type: "UDP Jitter" as const })),
+  ...sitePrefixes.filter(prefix => prefix !== "BJ-HQ" && prefix !== "SH-DC1").map(prefix => ({ source: coreSwitch(prefix, 2), target: coreSwitch("SH-DC1", 1), type: "ICMP Jitter" as const })),
+  { source: firewall("GZ-HQ-EDGE", 1), target: firewall("BJ-HQ-EDGE", 1), type: "UDP Jitter" },
+  { source: firewall("HZ-CAMPUS-EDGE", 1), target: firewall("SH-DC1-DMZ", 1), type: "UDP Jitter" },
+  { source: firewall("SZ-DC1-SERVER", 1), target: firewall("SH-DC1-DMZ", 1), type: "UDP Jitter" },
+];
+
+const scenarios: Record<string, Scenario> = {
+  "XA-DC1-CORE-SW01>BJ-HQ-CORE-SW01": { jitterSd: 21, jitterDs: 38, lossSd: 2, lossDs: 8 },
+  "CQ-HQ-CORE-SW01>BJ-HQ-CORE-SW01": { lossSd: 0, lossDs: 1.6 },
+  "WH-CAMPUS-CORE-SW01>BJ-HQ-CORE-SW01": { down: true },
+  "CD-HQ-CORE-SW02>SH-DC1-CORE-SW01": { rtt: 186 },
+  "GZ-HQ-EDGE-FW01>BJ-HQ-EDGE-FW01": { lossSd: 1, lossDs: 3, jitterDs: 9 },
+  "NJ-DC1-CORE-SW02>SH-DC1-CORE-SW01": { collectionError: true },
+  "HZ-CAMPUS-CORE-SW01>BJ-HQ-CORE-SW01": { stale: true },
+  "SZ-DC1-SERVER-FW01>SH-DC1-DMZ-FW01": { paused: true },
+};
+
+const round = (value: number) => Number(value.toFixed(1));
+
+function evaluate(metrics: Pick<Operation, "rtt" | "jitterSd" | "jitterDs" | "lossSd" | "lossDs">, down: boolean): Pick<Operation, "quality" | "reason"> {
+  if (down) return { quality: "Down", reason: "Device result: timeout" };
+  const critical: string[] = [];
+  const warning: string[] = [];
+  const check = (value: number | null, label: string, unit: string, warnAt: number, criticalAt: number) => {
+    if (value === null) return;
+    if (value >= criticalAt) critical.push(`${label} ${value}${unit} ≥ ${criticalAt}${unit}`);
+    else if (value >= warnAt) warning.push(`${label} ${value}${unit} ≥ ${warnAt}${unit}`);
+  };
+  check(metrics.lossDs, "Target → source loss", "%", 1, 5);
+  check(metrics.lossSd, "Source → target loss", "%", 1, 5);
+  check(metrics.jitterDs, "Target → source jitter", "ms", 15, 30);
+  check(metrics.jitterSd, "Source → target jitter", "ms", 15, 30);
+  check(metrics.rtt, "RTT", "ms", 100, 150);
+  if (critical.length) return { quality: "Critical", reason: [...critical, ...warning].join("; ") };
+  if (warning.length) return { quality: "Warning", reason: warning.join("; ") };
+  return { quality: "Healthy", reason: "Within quality thresholds" };
+}
+
 function initialOperations(): Operation[] {
-  return Array.from({ length: 18 }, (_, index) => {
-    const jitter = index % 3 !== 0;
-    const quality = index === 4 ? "Down" : index === 2 || index === 11 ? "Critical" : index === 1 || index === 8 ? "Warning" : "Healthy";
+  const nextId: Record<string, number> = {};
+  return probeSpecs.map(spec => {
+    const ci = cmdbDevice(spec.source);
+    const targetCi = cmdbDevice(spec.target);
+    const scenario = scenarios[`${spec.source}>${spec.target}`] ?? {};
+    const random = seeded(`${spec.source}>${spec.target}`);
+    nextId[spec.source] = (nextId[spec.source] ?? 9) + 1;
+    const id = String(nextId[spec.source]);
+    const jitter = true;
+    const rtt = scenario.down ? null : scenario.rtt ?? round(baseRtt(spec.source, spec.target) * (0.94 + random() * 0.14));
+    const jitterBase = (rtt ?? 0) * 0.012 + 0.2;
+    const metrics = {
+      rtt,
+      jitterSd: jitter && !scenario.down ? scenario.jitterSd ?? round(jitterBase * (0.5 + random())) : null,
+      jitterDs: jitter && !scenario.down ? scenario.jitterDs ?? round(jitterBase * (0.6 + random())) : null,
+      lossSd: jitter && !scenario.down ? scenario.lossSd ?? 0 : null,
+      lossDs: jitter && !scenario.down ? scenario.lossDs ?? 0 : null,
+    };
     return {
-      key: `router-${index % 6}-op-${101 + index}`,
-      id: String(101 + index),
-      device: `${["SH", "HK", "BJ"][index % 3]}-WAN-${String(index % 6 + 1).padStart(2, "0")}`,
-      source: `192.0.2.${index % 6 + 2}`,
-      target: `198.51.100.${30 + index}`,
-      site: sites[index % 3],
-      type: jitter ? "UDP Jitter" : "ICMP Echo",
-      quality,
-      collection: index === 9 ? "error" : "success",
-      fresh: index !== 7,
-      enabled: index !== 13,
-      rtt: quality === "Down" ? null : index === 2 ? 29 : index === 11 ? 186 : 14 + index * 4,
-      jitterSd: jitter ? index === 2 ? 24 : 1.2 + index * 0.6 : null,
-      jitterDs: jitter ? index === 2 ? 38 : 2.4 + index * 0.8 : null,
-      lossSd: jitter ? index === 2 ? 2 : index === 11 ? 6 : index === 1 ? 1 : 0 : null,
-      lossDs: jitter ? index === 2 ? 8 : index === 11 ? 12 : index === 8 ? 3 : 0 : null,
-      reason: quality === "Down" ? "Device result: timeout" : index === 2 ? "Target → source loss 8% ≥ 5%; jitter 38ms ≥ 30ms" : index === 11 ? "Target → source loss 12% ≥ 5%; RTT 186ms ≥ 150ms" : index === 1 ? "Source → target loss 1% ≥ 1%" : index === 8 ? "Target → source loss 3% ≥ 1%" : "Within quality thresholds",
+      key: `${spec.source}-op-${id}`,
+      id,
+      device: spec.source,
+      ci,
+      targetCi,
+      probe: probeFeature[ci.vendor] ?? "IP SLA",
+      source: ci.ip,
+      target: targetCi.ip,
+      site: cityOf(spec.source).name,
+      type: spec.type,
+      collection: scenario.collectionError ? "error" : "success",
+      fresh: !scenario.stale,
+      enabled: !scenario.paused,
+      ...metrics,
+      ...evaluate(metrics, Boolean(scenario.down)),
     };
   });
 }
+
+const sites = Array.from(new Set(probeSpecs.map(spec => cityOf(spec.source).name))).sort();
 
 function health(operation: Operation): Health {
   if (!operation.enabled) return "Paused";
@@ -95,11 +163,56 @@ function reason(operation: Operation) {
 }
 
 function number(value: number | null, unit = "") {
-  return value === null ? "N/A" : `${Number(value.toFixed(1))}${unit}`;
+  return value === null ? "—" : `${Number(value.toFixed(1))}${unit}`;
 }
 
 function Badge({ state }: { state: Health }) {
   return <span className="sla-badge" style={{ color: healthColors[state] }}><span style={{ background: healthColors[state] }} />{state}</span>;
+}
+
+type AlertItem = { operation: Operation; state: Health; time: number; title: string; detail: string; evidence: string };
+
+const alertReference = Date.UTC(2026, 9, 28, 6, 0);
+
+function qualityAdvice(operation: Operation) {
+  const loss = Math.max(operation.lossSd ?? 0, operation.lossDs ?? 0);
+  const jitter = Math.max(operation.jitterSd ?? 0, operation.jitterDs ?? 0);
+  if (loss >= 1) return "Check interface errors, queue drops and link utilization along the path.";
+  if (jitter >= 15) return "Check QoS policy and congestion on the path; jitter at this level affects voice and other real-time traffic.";
+  return "Check routing, WAN link utilization and carrier status for this path.";
+}
+
+function buildAlert(operation: Operation): AlertItem {
+  const state = health(operation);
+  const random = seeded(`alert-${operation.key}`);
+  const minutes = state === "Stale" ? 18 : Math.floor(5 + random() * 85);
+  const target = `${operation.targetCi.name} (${operation.target})`;
+  const latest = `RTT ${number(operation.rtt, " ms")} · Jitter S→T / T→S ${number(operation.jitterSd)} / ${number(operation.jitterDs)} ms · Loss S→T / T→S ${number(operation.lossSd)} / ${number(operation.lossDs)} %`;
+  const base = { operation, state, time: alertReference - minutes * 60000 };
+  if (state === "Down") return { ...base, title: "Probe timeout, target unreachable", detail: `The ${operation.type} operation from ${operation.device} (${operation.source}) received no response from ${target} for ${minutes} minutes. The device reports result "timeout", so RTT, jitter and packet loss are unavailable. Verify link and routing to the target, and that the IP SLA responder is running and not blocked by an ACL.`, evidence: `Device result: timeout · ${operation.probe} · ${operation.site}` };
+  if (state === "Collection error") return { ...base, title: "Data collection failed", detail: `The DOOP SNMP request to ${operation.device} (${operation.source}) timed out, so the ${operation.probe} result for the path to ${target} could not be refreshed. The values shown are the last retained result and may be out of date. Check SNMP credentials, ACLs and device CPU load.`, evidence: `Last retained result: ${latest}` };
+  if (state === "Stale") return { ...base, title: "No new probe result", detail: `${operation.device} has not returned a new result for the path to ${target} for ${minutes} minutes, although the operation runs every 60 s. The operation may have stopped or been rescheduled, or the device clock may be out of sync. Check the operation schedule on the device and its NTP status.`, evidence: `Last result: ${latest}` };
+  return { ...base, title: state === "Critical" ? "Critical path quality" : "Degraded path quality", detail: `Thresholds breached on the ${operation.type} path from ${operation.device} (${operation.source}) to ${target}: ${operation.reason}. ${qualityAdvice(operation)}`, evidence: `Latest: ${latest}` };
+}
+
+function formatDuration(minutes: number) {
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+function AlertTable({ alerts, end, onSelect }: { alerts: AlertItem[]; end: number; onSelect: (key: string) => void }) {
+  return <div className="sla-alert-scroll"><Table className="sla-alert-table">
+    <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Status</TableHead><TableHead>Alert</TableHead></TableRow></TableHeader>
+    <TableBody>{alerts.map(alert => <TableRow key={alert.operation.key}>
+      <TableCell className="sla-alert-time"><strong>{new Date(alert.time).toISOString().slice(0, 19).replace("T", " ")}</strong><small>UTC · active {formatDuration(Math.max(1, Math.round((end - alert.time) / 60000)))}</small></TableCell>
+      <TableCell><Badge state={alert.state} /></TableCell>
+      <TableCell className="sla-alert-body">
+        <button className="sla-table-link sla-alert-title" title="Open operation details" onClick={() => onSelect(alert.operation.key)}>{alert.title}<span>{alert.operation.device} #{alert.operation.id}</span></button>
+        <p>{alert.detail}</p>
+        <small>{alert.evidence}</small>
+        <div className="sla-alert-links"><span>Source {alert.operation.device}<CiLink ci={alert.operation.ci} /></span><span>Target {alert.operation.targetCi.name}<CiLink ci={alert.operation.targetCi} /></span></div>
+      </TableCell>
+    </TableRow>)}</TableBody>
+  </Table></div>;
 }
 
 function DashboardSection({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
@@ -109,7 +222,7 @@ function DashboardSection({ title, note, children }: { title: string; note?: str
   </Collapsible>;
 }
 
-function OperationTable({ operations, mode, onSelect, onToggle }: { operations: Operation[]; mode: "issues" | "all" | "ranking"; onSelect: (key: string) => void; onToggle: (operation: Operation) => void }) {
+function OperationTable({ operations, mode, onSelect, onToggle }: { operations: Operation[]; mode: "all" | "ranking"; onSelect: (key: string) => void; onToggle: (operation: Operation) => void }) {
   const [sort, setSort] = useState<{ key: "device" | "target" | "type" | "rtt"; ascending: boolean } | null>(null);
   const [pageSize, setPageSize] = useState(30);
   const [pagination, setPagination] = useState({ scope: "", page: 1 });
@@ -127,11 +240,11 @@ function OperationTable({ operations, mode, onSelect, onToggle }: { operations: 
   const sortableHead = (key: "device" | "target" | "type" | "rtt", title: string) => <TableHead aria-sort={sort?.key === key ? sort.ascending ? "ascending" : "descending" : "none"}><button className="sla-sort-button" title={`Sort by ${title}`} onClick={() => setSort({ key, ascending: sort?.key === key ? !sort.ascending : true })}>{title}<ArrowDownUp size={12} /></button></TableHead>;
   return <>
     <Table>
-    <TableHeader><TableRow>{sortableHead("device", "Source device / operation")}{sortableHead("target", "Target")}{sortableHead("type", "Type")}<TableHead>Status</TableHead>{mode === "issues" ? <TableHead>Issue</TableHead> : <TableHead>Site</TableHead>}{sortableHead("rtt", "Latest RTT (ms)")}{mode === "all" && <><TableHead>Jitter S→T / T→S (ms)</TableHead><TableHead>Loss S→T / T→S (%)</TableHead><TableHead>Collection</TableHead></>}</TableRow></TableHeader>
+    <TableHeader><TableRow>{sortableHead("device", "Source device / operation")}{sortableHead("target", "Target")}{sortableHead("type", "Type")}<TableHead>Status</TableHead><TableHead>Site</TableHead>{sortableHead("rtt", "Latest RTT (ms)")}{mode === "all" && <><TableHead>Jitter S→T / T→S (ms)</TableHead><TableHead>Loss S→T / T→S (%)</TableHead><TableHead>Collection</TableHead></>}</TableRow></TableHeader>
     <TableBody>{sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(operation => <TableRow key={operation.key}>
-      <TableCell><button className="sla-table-link" onClick={() => onSelect(operation.key)}>{operation.device}<span>#{operation.id}</span></button></TableCell>
-      <TableCell>{operation.target}</TableCell><TableCell>{operation.type}</TableCell><TableCell><Badge state={health(operation)} /></TableCell>
-      <TableCell className={mode === "issues" ? "sla-reason" : undefined}>{mode === "issues" ? reason(operation) : operation.site}</TableCell><TableCell>{number(operation.rtt)}</TableCell>
+      <TableCell><div className="sla-ci-cell"><button className="sla-table-link" onClick={() => onSelect(operation.key)}>{operation.device}<span>#{operation.id}</span></button><CiLink ci={operation.ci} /></div><small>{operation.source}</small></TableCell>
+      <TableCell><div className="sla-ci-cell"><span>{operation.targetCi.name}</span><CiLink ci={operation.targetCi} /></div><small>{operation.target}</small></TableCell><TableCell>{operation.type}</TableCell><TableCell><Badge state={health(operation)} /></TableCell>
+      <TableCell>{operation.site}</TableCell><TableCell>{number(operation.rtt)}</TableCell>
       {mode === "all" && <><TableCell>{number(operation.jitterSd)} / {number(operation.jitterDs)}</TableCell><TableCell>{number(operation.lossSd)} / {number(operation.lossDs)}</TableCell><TableCell><button className="sla-icon-button" title={operation.enabled ? "Pause collection" : "Resume collection"} aria-label={`${operation.enabled ? "Pause" : "Resume"} collection ${operation.device} ${operation.id}`} onClick={() => onToggle(operation)}>{operation.enabled ? <Pause size={13} /> : <Play size={13} />}</button></TableCell></>}
     </TableRow>)}</TableBody>
     </Table>
@@ -141,14 +254,18 @@ function OperationTable({ operations, mode, onSelect, onToggle }: { operations: 
 
 function trend(operations: Operation[], hours: number, end: number) {
   const valid = operations.filter(usable);
-  const jitter = valid.filter(operation => operation.type === "UDP Jitter");
+  const jitter = valid.filter(operation => operation.jitterDs !== null);
   const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   const meanRtt = average(valid.flatMap(operation => operation.rtt === null ? [] : [operation.rtt]));
   const meanJitter = average(jitter.flatMap(operation => operation.jitterDs === null ? [] : [operation.jitterDs]));
   const meanLoss = average(jitter.flatMap(operation => operation.lossDs === null ? [] : [operation.lossDs]));
   return Array.from({ length: 25 }, (_, index) => {
     const timestamp = end - (24 - index) * hours * 3600000 / 24;
-    const factor = index === 24 ? 1 : 0.72 + (Math.sin(index * 0.8) + 1) * 0.15 + (index === 17 ? 0.5 : 0);
+    const localHour = (new Date(timestamp).getUTCHours() + 8) % 24 + new Date(timestamp).getUTCMinutes() / 60;
+    const businessLoad = Math.exp(-(((localHour - 14) / 4) ** 2));
+    const noise = seeded(`trend-${hours}-${index}`);
+    const spike = noise() > 0.9 ? 1.25 : 1;
+    const factor = index === 24 ? 1 : (0.9 + businessLoad * 0.14 + (noise() - 0.5) * 0.06) * spike;
     return {
       time: new Date(timestamp).toISOString().slice(11, 16),
       rtt: meanRtt === null ? null : Number((meanRtt * factor).toFixed(1)),
@@ -182,20 +299,20 @@ export function IpSlaDashboard() {
   const [direction, setDirection] = useState<"sd" | "ds">("ds");
   const [notice, setNotice] = useState("");
   const [showChrome, setShowChrome] = useState(false);
-  const end = Date.UTC(2026, 9, 21, 8, refresh);
-  const scoped = operations.filter(operation => (site === "All sites" || operation.site === site) && (type === "All types" || operation.type === type) && `${operation.device} ${operation.id} ${operation.target}`.toLowerCase().includes(query.toLowerCase()));
+  const end = Date.UTC(2026, 9, 28, 6, refresh);
+  const scoped = operations.filter(operation => (site === "All sites" || operation.site === site) && (type === "All types" || operation.type === type) && `${operation.device} ${operation.id} ${operation.source} ${operation.targetCi.name} ${operation.target}`.toLowerCase().includes(query.toLowerCase()));
   const filtered = scoped.filter(operation => status === "All statuses" || health(operation) === status);
   const counts = healthOrder.map(name => ({ name, value: scoped.filter(operation => health(operation) === name).length }));
-  const issues = filtered.filter(operation => health(operation) !== "Healthy" && health(operation) !== "Paused");
+  const alerts = filtered.filter(operation => health(operation) !== "Healthy" && health(operation) !== "Paused").map(buildAlert).sort((left, right) => right.time - left.time);
   const ranked = filtered.filter(usable).sort((left, right) => (right.rtt ?? 0) - (left.rtt ?? 0)).slice(0, 5);
   const selected = operations.find(operation => operation.key === selectedKey);
   const chartOperations = selected ? [selected] : filtered;
   const data = trend(chartOperations, hours, end);
   const hasChart = chartOperations.some(usable);
-  const jitterOperations = filtered.filter(operation => usable(operation) && operation.type === "UDP Jitter").length;
+  const jitterOperations = filtered.filter(operation => usable(operation) && operation.jitterDs !== null).length;
 
   const exportCsv = () => {
-    const rows = [["Device", "Operation ID", "Type", "Site", "Target", "Status", "RTT ms", "Jitter SD ms", "Jitter DS ms", "Loss SD %", "Loss DS %"], ...filtered.map(operation => [operation.device, operation.id, operation.type, operation.site, operation.target, health(operation), operation.rtt ?? "", operation.jitterSd ?? "", operation.jitterDs ?? "", operation.lossSd ?? "", operation.lossDs ?? ""])];
+    const rows = [["Device", "Source IP", "Operation ID", "Type", "Site", "Target CI", "Target IP", "Status", "RTT ms", "Jitter SD ms", "Jitter DS ms", "Loss SD %", "Loss DS %"], ...filtered.map(operation => [operation.device, operation.source, operation.id, operation.type, operation.site, operation.targetCi.name, operation.target, health(operation), operation.rtt ?? "", operation.jitterSd ?? "", operation.jitterDs ?? "", operation.lossSd ?? "", operation.lossDs ?? ""])];
     const csv = rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
@@ -226,13 +343,13 @@ export function IpSlaDashboard() {
       </aside>}
       <main className="np-main sla-main">
         {showChrome && <div className="np-workspace-tabs"><span><Activity size={12} />IP SLA</span><Link href="/network-path">Network Path</Link></div>}
-        <div className="sla-module-header"><button type="button" role="switch" aria-checked={showChrome} aria-label="显示顶部导航与左侧菜单" title={showChrome ? "隐藏导航" : "显示导航"} className={`np-chrome-switch${showChrome ? " on" : ""}`} onClick={() => setShowChrome(value => !value)}><span /></button><h1>IP SLA</h1><span className="sla-demo">Demo data</span><div className="sla-header-actions"><Clock3 size={13} /><select aria-label="Time range" value={hours} onChange={event => setHours(Number(event.target.value))}><option value={1}>Last 1 hour</option><option value={6}>Last 6 hours</option><option value={24}>Last 24 hours</option></select><span className="sla-range-label">{new Date(end - hours * 3600000).toISOString().slice(0, 16).replace("T", " ")} – {new Date(end).toISOString().slice(11, 16)} UTC</span><button className="sla-icon-button" title="Refresh dashboard" aria-label="Refresh dashboard" onClick={() => { setRefresh(previous => previous + 1); setNotice("Dashboard refreshed"); }}><RefreshCw size={14} /></button></div></div>
+        <div className="sla-module-header"><button type="button" role="switch" aria-checked={showChrome} aria-label="显示顶部导航与左侧菜单" title={showChrome ? "隐藏导航" : "显示导航"} className={`np-chrome-switch${showChrome ? " on" : ""}`} onClick={() => setShowChrome(value => !value)}><span /></button><h1>IP SLA</h1><div className="sla-header-actions"><Clock3 size={13} /><select aria-label="Time range" value={hours} onChange={event => setHours(Number(event.target.value))}><option value={1}>Last 1 hour</option><option value={6}>Last 6 hours</option><option value={24}>Last 24 hours</option></select><span className="sla-range-label">{new Date(end - hours * 3600000).toISOString().slice(0, 16).replace("T", " ")} – {new Date(end).toISOString().slice(11, 16)} UTC</span><button className="sla-icon-button" title="Refresh dashboard" aria-label="Refresh dashboard" onClick={() => { setRefresh(previous => previous + 1); setNotice("Dashboard refreshed"); }}><RefreshCw size={14} /></button></div></div>
         <div className="sla-content">
           {selected && <div className="sla-heading"><h2>{selected.device} / Operation {selected.id}</h2></div>}
-          {selected ? <div className="sla-detail-toolbar"><button onClick={() => setSelectedKey(null)}><ArrowLeft size={14} />Back to dashboard</button><Badge state={health(selected)} /><span>{selected.type}</span><span>Cisco IP SLA</span><button className="sla-secondary sla-push-right" onClick={() => toggleCollection(selected)}>{selected.enabled ? <Pause size={13} /> : <Play size={13} />}{selected.enabled ? "Pause collection" : "Resume collection"}</button></div> : <div className="sla-filters">
+          {selected ? <div className="sla-detail-toolbar"><button onClick={() => setSelectedKey(null)}><ArrowLeft size={14} />Back to dashboard</button><Badge state={health(selected)} /><span>{selected.type}</span><span>{selected.probe}</span><button className="sla-secondary sla-push-right" onClick={() => toggleCollection(selected)}>{selected.enabled ? <Pause size={13} /> : <Play size={13} />}{selected.enabled ? "Pause collection" : "Resume collection"}</button></div> : <div className="sla-filters">
             <label className="sla-search"><Search size={14} /><input aria-label="Search operations" placeholder="Search device, operation or target" value={query} onChange={event => setQuery(event.target.value)} /></label>
             <select aria-label="Site" value={site} onChange={event => setSite(event.target.value)}><option>All sites</option>{sites.map(value => <option key={value}>{value}</option>)}</select>
-            <select aria-label="Operation type" value={type} onChange={event => setType(event.target.value)}><option>All types</option><option>ICMP Echo</option><option>UDP Jitter</option></select>
+            <select aria-label="Operation type" value={type} onChange={event => setType(event.target.value)}><option>All types</option><option>ICMP Jitter</option><option>UDP Jitter</option></select>
             <select aria-label="Operation status" value={status} onChange={event => setStatus(event.target.value)}><option>All statuses</option>{healthOrder.map(value => <option key={value}>{value}</option>)}</select>
             <button className="sla-icon-button" title="Reset filters" aria-label="Reset filters" onClick={() => { setSite("All sites"); setType("All types"); setStatus("All statuses"); setQuery(""); }}><RefreshCw size={14} /></button>
             <button className="sla-secondary sla-push-right" onClick={exportCsv}><Download size={13} />Export</button>
@@ -243,21 +360,21 @@ export function IpSlaDashboard() {
             <section className="sla-summary" aria-label="Operation summary">
               {[{ name: "Monitored operations", value: scoped.length }, ...counts].map(item => <button className="sla-stat" key={item.name} aria-label={`Filter ${item.name}`} aria-pressed={status === (item.name === "Monitored operations" ? "All statuses" : item.name)} onClick={() => setStatus(item.name === "Monitored operations" || status === item.name ? "All statuses" : item.name)}><span>{item.name}</span><strong>{item.value}</strong></button>)}
             </section>
-            <section className="sla-panel" aria-label="Operations with issues"><div className="sla-panel-title"><h3>Operations with issues <span className="sla-count">{issues.length}</span></h3><span>Quality, collection & freshness</span></div><OperationTable operations={issues} mode="issues" onSelect={setSelectedKey} onToggle={toggleCollection} />{!issues.length && <div className="sla-empty"><Check size={17} />No issues in this scope</div>}</section>
+            <section className="sla-panel" aria-label="Alerts"><div className="sla-panel-title"><h3>Alerts <span className="sla-count">{alerts.length}</span></h3><span>Newest first · quality, collection & freshness</span></div>{alerts.length > 0 && <AlertTable alerts={alerts} end={end} onSelect={setSelectedKey} />}{!alerts.length && <div className="sla-empty"><Check size={17} />No alerts in this scope</div>}</section>
             </DashboardSection>
           </>}
 
-          {selected && <section className="sla-endpoints"><div><Server size={22} /><div><small>Source device</small><strong>{selected.device}</strong><span>{selected.source} · {selected.site}</span></div></div><div className="sla-endpoint-link"><span>{selected.type}</span><ArrowRight size={24} /><small>{selected.type === "UDP Jitter" ? "UDP / 16384" : "ICMP"}</small></div><div><Network size={22} /><div><small>Target endpoint</small><strong>{selected.target}</strong><span>Operation {selected.id} · 60s interval</span></div></div></section>}
+          {selected && <section className="sla-endpoints"><div><Server size={22} /><div><small>Source device</small><strong className="sla-ci-cell">{selected.device}<CiLink ci={selected.ci} /></strong><span>{selected.source} · {selected.ci.vendor} {selected.ci.model || selected.ci.type} · {selected.site}</span></div></div><div className="sla-endpoint-link"><span>{selected.type}</span><ArrowRight size={24} /><small>{selected.type === "UDP Jitter" ? "UDP / 16384" : "ICMP"}</small></div><div><Network size={22} /><div><small>Target endpoint</small><strong className="sla-ci-cell">{selected.targetCi.name}<CiLink ci={selected.targetCi} /></strong><span>{selected.target} · Operation {selected.id} · 60s interval</span></div></div></section>}
           {selected && <section className="sla-result-strip"><div><span>Device execution</span><strong>{selected.quality === "Down" ? "Timeout" : "OK"}</strong></div><div><span>Collection</span><strong>{!selected.enabled ? "Paused" : selected.collection === "error" ? "SNMP error" : "Success"}</strong></div><div><span>Result freshness</span><strong>{!selected.fresh ? "Stale · 18 min ago" : !selected.enabled || selected.collection === "error" ? "Last retained result" : "Fresh · 30s ago"}</strong></div><div><span>Latest RTT</span><strong>{number(selected.rtt, " ms")}</strong></div><div><span>Quality condition</span><strong>{reason(selected)}</strong></div></section>}
 
           <DashboardSection title={selected ? "Operation quality" : "Quality monitoring"} note={`${selected ? "Unique device results" : `Mean across valid operations · ${filtered.filter(usable).length} RTT / ${jitterOperations} UDP Jitter`} · UTC`}>
-          <div className="sla-trend-grid">{([{ metric: "rtt", title: "Round-trip time", color: "#409eff", unit: "ms" }, { metric: "jitter", title: "Jitter · target → source", color: "#25a77a", unit: "ms" }, { metric: "loss", title: "Packet loss · target → source", color: "#d99519", unit: "%" }] as const).map(item => <section className="sla-panel" key={item.metric}><div className="sla-panel-title"><h3>{item.title}</h3><strong>{number(data[data.length - 1][item.metric], ` ${item.unit}`)}</strong></div>{!hasChart || (selected?.type === "ICMP Echo" && item.metric !== "rtt") || data.every(point => point[item.metric] === null) ? <div className="sla-chart-empty">{selected?.type === "ICMP Echo" && item.metric !== "rtt" ? "Not supported by ICMP Echo" : "No valid results in this scope"}</div> : <QualityChart data={data} metric={item.metric} color={item.color} unit={item.unit} />}</section>)}</div>
+          <div className="sla-trend-grid">{([{ metric: "rtt", title: "Round-trip time", color: "#409eff", unit: "ms" }, { metric: "jitter", title: "Jitter · target → source", color: "#25a77a", unit: "ms" }, { metric: "loss", title: "Packet loss · target → source", color: "#d99519", unit: "%" }] as const).map(item => <section className="sla-panel" key={item.metric}><div className="sla-panel-title"><h3>{item.title}</h3><strong>{number(data[data.length - 1][item.metric], ` ${item.unit}`)}</strong></div>{!hasChart || data.every(point => point[item.metric] === null) ? <div className="sla-chart-empty">{"No valid results in this scope"}</div> : <QualityChart data={data} metric={item.metric} color={item.color} unit={item.unit} />}</section>)}</div>
           </DashboardSection>
 
-          {selected ? <section className="sla-panel sla-direction-panel"><div className="sla-panel-title"><h3>Directional measurements</h3><div className="sla-segment" role="group" aria-label="Measurement direction"><button aria-pressed={direction === "sd"} className={direction === "sd" ? "active" : ""} onClick={() => setDirection("sd")}>Source → target</button><button aria-pressed={direction === "ds"} className={direction === "ds" ? "active" : ""} onClick={() => setDirection("ds")}>Target → source</button></div></div><div className="sla-direction-values"><div><span>Jitter</span><strong>{number(direction === "sd" ? selected.jitterSd : selected.jitterDs, " ms")}</strong></div><div><span>Packet loss</span><strong>{number(direction === "sd" ? selected.lossSd : selected.lossDs, "%")}</strong></div><div><span>Measurement capability</span><strong>{selected.type === "UDP Jitter" ? "Bidirectional UDP Jitter" : "RTT only"}</strong></div></div></section> : <>
+          {selected ? <section className="sla-panel sla-direction-panel"><div className="sla-panel-title"><h3>Directional measurements</h3><div className="sla-segment" role="group" aria-label="Measurement direction"><button aria-pressed={direction === "sd"} className={direction === "sd" ? "active" : ""} onClick={() => setDirection("sd")}>Source → target</button><button aria-pressed={direction === "ds"} className={direction === "ds" ? "active" : ""} onClick={() => setDirection("ds")}>Target → source</button></div></div><div className="sla-direction-values"><div><span>Jitter</span><strong>{number(direction === "sd" ? selected.jitterSd : selected.jitterDs, " ms")}</strong></div><div><span>Packet loss</span><strong>{number(direction === "sd" ? selected.lossSd : selected.lossDs, "%")}</strong></div><div><span>Measurement capability</span><strong>{"Bidirectional " + selected.type}</strong></div></div></section> : <>
             <DashboardSection title="Operation details">
               <section className="sla-panel" aria-label="Top RTT"><div className="sla-panel-title"><h3>Top RTT</h3><span>Latest valid result · descending</span></div><OperationTable operations={ranked} mode="ranking" onSelect={setSelectedKey} onToggle={toggleCollection} />{!ranked.length && <div className="sla-empty">No valid device results</div>}</section>
-              <section className="sla-panel" aria-label="All operations"><div className="sla-panel-title"><h3>All operations <span className="sla-count">{filtered.length}</span></h3><span>Cisco IP SLA · latest result</span></div><OperationTable operations={filtered} mode="all" onSelect={setSelectedKey} onToggle={toggleCollection} />{!filtered.length && <div className="sla-empty">No operations match the filters</div>}</section>
+              <section className="sla-panel" aria-label="All operations"><div className="sla-panel-title"><h3>All operations <span className="sla-count">{filtered.length}</span></h3><span>Multi-vendor probes · latest result</span></div><OperationTable operations={filtered} mode="all" onSelect={setSelectedKey} onToggle={toggleCollection} />{!filtered.length && <div className="sla-empty">No operations match the filters</div>}</section>
             </DashboardSection>
           </>}
         </div>

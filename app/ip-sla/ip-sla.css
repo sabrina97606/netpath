@@ -1,10 +1,10 @@
 .sla-app { --sla-muted: #909399; --sla-green: #25a77a; --sla-control-border: #dcdfe6; font-size: 14px; color: #303133; }
-.sla-app .np-subnav a { display: flex; align-items: center; height: 29px; padding: 0 24px; font-size: 11px; color: inherit; text-decoration: none; }
+.sla-app .np-subnav a { display: flex; align-items: center; height: 36px; padding: 0 36px; font-size: 14px; color: inherit; text-decoration: none; }
 .sla-app .np-subnav a.active { color: var(--np-blue); background: #f3f6fa; border-right: 2px solid var(--np-blue); }
 .sla-main { background: #f3f3f5; }
 .sla-module-header { display: flex; align-items: center; flex-wrap: wrap; flex-shrink: 0; gap: 12px; padding: 4px 8px; min-height: 48px; background: #f3f3f5; }
 .sla-module-header h1 { font-size: 16px; font-weight: 600; margin: 0; }
-.sla-demo { font-size: 12px; color: var(--sla-muted); }
+
 .sla-header-actions { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .sla-range-label { color: #606266; font-size: 12px; }
 .sla-app select { height: 28px; padding: 0 24px 0 8px; border-color: var(--sla-control-border); border-radius: 2px; font-size: 14px; }
@@ -37,7 +37,7 @@
 .sla-section-heading > span { margin-left: auto; font-size: 12px; color: var(--sla-muted); }
 .sla-trend-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .sla-chart { height: 210px; width: 100%; aspect-ratio: auto; padding: 4px 0 2px; }
-.sla-chart-empty { height: 210px; display: flex; align-items: center; justify-content: center; color: #91a0b0; font-size: 11px; padding: 15px; }
+.sla-chart-empty { height: 210px; display: flex; align-items: center; justify-content: center; color: #91a0b0; font-size: 13px; padding: 15px; }
 .sla-content > .sla-panel { margin-top: 16px; }
 .sla-count { color: var(--sla-muted); font-size: 12px; font-weight: 400; }
 .sla-panel [data-slot="table-container"] { max-height: 225px; border: 1px solid #ebeef1; }
@@ -49,42 +49,52 @@
 .sla-app th[aria-sort="ascending"] svg, .sla-app th[aria-sort="descending"] svg { color: #409eff; }
 .sla-app tbody tr:last-child td { border-bottom: 0; }
 .sla-app tbody tr:hover { background: #f5f7fa; }
-.sla-app td small { display: block; color: #94a0af; font-size: 9px; margin-top: 4px; }
+.sla-app td small { display: block; color: #94a0af; font-size: 12px; margin-top: 4px; }
 .sla-app .sla-table-link { color: #303133; font-size: 14px; padding: 0; gap: 7px; }
 .sla-table-link:hover { text-decoration: underline; }
 .sla-table-link > span { color: #909399; }
-.sla-reason { white-space: normal; min-width: 240px; max-width: 400px; line-height: 22px; }
+  .sla-ci-cell { display: inline-flex; align-items: center; gap: 6px; }
+  .sla-alert-scroll { max-height: 480px; overflow-y: auto; border: 1px solid #ebeef1; }
+.sla-panel .sla-alert-scroll [data-slot="table-container"] { max-height: none; overflow: visible; border: 0; }
+.sla-alert-table td { vertical-align: top; }
+.sla-alert-time { white-space: nowrap; width: 170px; }
+.sla-alert-time strong { display: block; font-size: 14px; font-weight: 400; }
+.sla-alert-body { white-space: normal; min-width: 420px; line-height: 22px; }
+.sla-alert-body p { margin: 2px 0 0; color: #606266; font-size: 14px; line-height: 22px; }
+.sla-app .sla-alert-title { font-weight: 500; }
+.sla-alert-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 6px; color: #909399; font-size: 12px; }
+.sla-alert-links > span { display: inline-flex; align-items: center; gap: 6px; }
 .sla-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; white-space: nowrap; }
 .sla-badge > span { width: 5px; height: 5px; border-radius: 50%; }
-.sla-empty { display: flex; gap: 6px; justify-content: center; align-items: center; min-height: 90px; color: #8b99aa; font-size: 11px; padding: 16px; }
+.sla-empty { display: flex; gap: 6px; justify-content: center; align-items: center; min-height: 90px; color: #8b99aa; font-size: 13px; padding: 16px; }
 .sla-table-footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; min-height: 44px; padding: 8px 0 0; font-size: 14px; color: #606266; }
 .sla-table-footer > span { margin-right: 2px; }
 .sla-table-footer select { min-width: 100px; }
 .sla-app .sla-page-button { width: 28px; height: 28px; padding: 0; border: 1px solid var(--sla-control-border); border-radius: 2px; background: #fff; color: #606266; font-size: 14px; }
 .sla-app .sla-page-button[aria-current="page"] { background: #409eff; color: #fff; border-color: #409eff; }
 .sla-app .sla-page-button:disabled { background: #f4f4f5; color: #c0c4cc; opacity: 1; }
-.sla-detail-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 14px; font-size: 11px; }
+.sla-detail-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 14px; font-size: 13px; }
 .sla-detail-toolbar > button:first-child { padding: 0; color: #409eff; }
 .sla-endpoints { display: flex; align-items: center; justify-content: space-evenly; padding: 23px 15px; gap: 15px; background: #fff; border-block: 1px solid var(--np-border); }
 .sla-endpoints > div { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .sla-endpoints > div > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.sla-endpoints small { font-size: 10px; color: #8b99aa; }
+.sla-endpoints small { font-size: 12px; color: #8b99aa; }
 .sla-endpoints strong { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
-.sla-endpoints span { font-size: 10px; color: #8391a1; }
+.sla-endpoints span { font-size: 12px; color: #8391a1; }
 .sla-endpoints > .sla-endpoint-link { flex-direction: column; gap: 4px; }
 .sla-endpoint-link svg { color: #8cabc6; }
 .sla-result-strip { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr 2fr; border-bottom: 1px solid var(--np-border); padding: 15px 0; gap: 15px; }
 .sla-result-strip > div { display: flex; flex-direction: column; gap: 6px; }
-.sla-result-strip span { font-size: 9px; color: #8996a7; }
-.sla-result-strip strong { font-size: 11px; font-weight: 500; line-height: 1.5; }
+.sla-result-strip span { font-size: 12px; color: #8996a7; }
+.sla-result-strip strong { font-size: 13px; font-weight: 500; line-height: 1.5; }
 .sla-segment { display: flex; border: 1px solid #dbe2eb; border-radius: 3px; }
-.sla-app .sla-segment button { padding: 5px 9px; font-size: 10px; }
+.sla-app .sla-segment button { padding: 5px 9px; font-size: 12px; }
 .sla-segment .active { background: #edf6ff; color: #409eff; }
 .sla-direction-values { display: flex; gap: 50px; padding: 20px; flex-wrap: wrap; }
 .sla-direction-values > div { display: flex; flex-direction: column; gap: 9px; }
-.sla-direction-values span { font-size: 10px; color: #8b99aa; }
+.sla-direction-values span { font-size: 12px; color: #8b99aa; }
 .sla-direction-values strong { font-size: 17px; font-weight: 500; }
-.sla-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; padding: 12px 15px; background: #fff; border: 1px solid #c7d9e8; box-shadow: 0 3px 15px #182f4a15; border-radius: 4px; max-width: calc(100% - 24px); font-size: 11px; z-index: 100; }
+.sla-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; padding: 12px 15px; background: #fff; border: 1px solid #c7d9e8; box-shadow: 0 3px 15px #182f4a15; border-radius: 4px; max-width: calc(100% - 24px); font-size: 13px; z-index: 100; }
 .sla-toast button { margin-left: 12px; }
 @media (max-width: 1100px) { .sla-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 760px) { .sla-app .np-nav { width: 118px; } .sla-app .np-subnav a { padding-left: 20px; } .sla-app .np-brand span { display: none; } .sla-app .np-top-right { gap: 10px; } .sla-app .np-top-right b { display: none; } .sla-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sla-trend-grid { grid-template-columns: 1fr; } .sla-search { width: 100%; } .sla-filters select { flex: 1; } .sla-result-strip { grid-template-columns: 1fr 1fr; } .sla-result-strip > div:last-child { grid-column: 1 / -1; } .sla-endpoints { flex-direction: column; align-items: flex-start; } .sla-endpoints > .sla-endpoint-link { flex-direction: row; } .sla-heading h2 { font-size: 18px; } .sla-module-header { padding: 8px; gap: 8px; } .sla-header-actions { width: 100%; margin-left: 0; } .sla-range-label { font-size: 10px; } }

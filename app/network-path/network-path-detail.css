@@ -31,33 +31,30 @@
 }
 .npd-tabs {
   display: flex;
+  gap: 32px;
   border-bottom: 1px solid var(--np-border);
-  padding-left: 5px;
+  padding: 0 16px;
 }
 .np-app .npd-tabs > button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  min-width: 188px;
-  padding: 8px 13px;
-  background: #f8f9fb;
-  color: #818d97;
-  border-right: 1px solid var(--np-border);
-  font-size: 12px;
+  position: relative;
+  padding: 12px 2px 10px;
+  background: transparent;
+  color: #4b5563;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
 }
-.npd-tabs > button > span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 600;
-}
-.npd-tabs small {
-  font-size: 11px;
+.np-app .npd-tabs > button:hover {
+  color: var(--np-blue);
 }
 .np-app .npd-tabs > button.active {
-  background: var(--np-blue);
-  color: white;
+  background: transparent;
+  color: var(--np-blue);
+  border-bottom-color: var(--np-blue);
+  font-weight: 600;
 }
 .npd-toolbar {
   display: flex;
@@ -1506,15 +1503,8 @@
     justify-content: flex-end;
   }
   .npd-tabs {
-    padding-left: 0;
-  }
-  .np-app .npd-tabs > button {
-    min-width: 0;
-    flex: 1;
-    padding: 8px;
-  }
-  .npd-tabs small {
-    font-size: 9px;
+    gap: 20px;
+    padding: 0 8px;
   }
   .npd-toolbar {
     flex-wrap: wrap;

@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
+import { CiLink } from "@/components/ci-link";
+import { NetworkPathDashboard } from "@/components/network-path-dashboard";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
   Select,
   SelectContent,
@@ -52,52 +56,63 @@ type Test = {
   env: string;
   interval?: string;
 };
+const ip = (name: string) => cmdbDevice(name).ip;
 const initialTests: Test[] = [
-  {
-    id: "70de870cc48fbeaf",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "api.datadoghq.com",
-    protocol: "TCP",
-    port: "443",
-    reach: 90.8,
-    rtt: 227,
-    site: "hong-kong",
-    env: "simulation",
-  },
-  {
-    id: "7d0e870cc48fbeaf",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "8.8.8.8",
-    protocol: "UDP",
-    port: "",
-    reach: 86.5,
-    rtt: 177,
-    site: "hong-kong",
-    env: "simulation",
-  },
-  {
-    id: "4fba40ec9c4d24df",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "1.1.1.1",
-    protocol: "UDP",
-    port: "",
-    reach: 99.1,
-    rtt: 84,
-    site: "hong-kong",
-    env: "simulation",
-  },
-  {
-    id: "a80246de490bb32c",
-    source: "sabrinadeMacBook-Pro.local",
-    destination: "10.0.0.10",
-    protocol: "TCP",
-    port: "80",
-    reach: 0,
-    rtt: 0,
-    site: "hong-kong",
-    env: "simulation",
-  },
+  { id: "70de870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "TCP", port: "443", reach: 99.8, rtt: 23, site: "sh-dc1", env: "production" },
+  { id: "7d0e870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("SZ-DC1-CORE-SW01"), protocol: "UDP", port: "", reach: 99.6, rtt: 34, site: "sh-dc1", env: "production" },
+  { id: "4fba40ec9c4d24df", source: "BJ-HQ-EDGE-FW01", destination: ip("SH-DC1-DMZ-FW01"), protocol: "TCP", port: "443", reach: 98.9, rtt: 27, site: "bj-hq", env: "production" },
+  { id: "a80246de490bb32c", source: "GZ-HQ-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "UDP", port: "", reach: 97.4, rtt: 41, site: "gz-hq", env: "production" },
+  { id: "b3159c0d7e2a46f1", source: "SH-DC1-DMZ-FW01", destination: ip("HZ-CAMPUS-EDGE-FW01"), protocol: "TCP", port: "22", reach: 99.9, rtt: 9, site: "sh-dc1", env: "production" },
+  { id: "c9e21b84a05d3f67", source: "BJ-HQ-CORE-SW01", destination: ip("WH-CAMPUS-CORE-SW01"), protocol: "TCP", port: "161", reach: 0, rtt: 0, site: "bj-hq", env: "production" },
 ];
+function AddFacetMenu({
+  onPick,
+  children,
+}: {
+  onPick: (field: string) => void;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="np-facet-menu">
+        {facetGroups.map((group) => (
+          <div key={group.name}>
+            <div className="np-facet-menu-group">{group.name}</div>
+            {group.fields.map((field) => (
+              <button
+                key={field}
+                type="button"
+                onClick={() => {
+                  onPick(field);
+                  setOpen(false);
+                }}
+              >
+                {field}
+              </button>
+            ))}
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+const matchesSearch = (test: Test, keyword: string) => {
+  const needle = keyword.trim().toLowerCase();
+  if (!needle) return true;
+  const values: Record<string, string[]> = {
+    "Source Display Name": [test.source],
+    "Destination Hostname": [test.destination],
+    "Destination Port": [test.port || "-"],
+    "Test Run Type": [test.protocol],
+    "Test ID": [test.id],
+    Tags: [`env:${test.env}`, `site:${test.site}`, `test_id:${test.id}`],
+  };
+  return Object.values(values)
+    .flat()
+    .some((candidate) => candidate.toLowerCase().includes(needle));
+};
 const facetGroups = [
   { name: "PATH", fields: ["Origin", "Protocol"] },
   {
@@ -218,11 +233,23 @@ function Sparkline({
 }
 
 function Destination({ name }: { name: string }) {
+  const ci = cmdbByIp.get(name) ?? cmdbByName.get(name);
   return (
     <span className="np-destination">
-      {name.startsWith("10.") ? <Server size={12} /> : <Globe size={12} />}
+      {ci ? <Server size={12} /> : <Globe size={12} />}
       {name}
+      {ci && <small className="np-ci-name">{ci.name}</small>}
+      <CiLink ci={ci} />
     </span>
+  );
+}
+
+function SourceName({ name }: { name: string }) {
+  return (
+    <>
+      {name}
+      <CiLink ci={cmdbByName.get(name)} />
+    </>
   );
 }
 
@@ -329,9 +356,7 @@ export function NetworkPath() {
         (testId === "All" || test.id === testId) &&
         (status === "All Tests" ||
           (status === "Reachable" ? test.reach > 0 : test.reach === 0)) &&
-        `${test.source} ${test.destination} ${test.id} ${test.env} ${test.site}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
+        matchesSearch(test, query),
     )
     .sort((left, right) =>
       sortDirection
@@ -373,6 +398,19 @@ export function NetworkPath() {
     history.replaceState(null, "", url);
   };
   const resetPage = () => setPage(1);
+  const revealFacet = (field: string) => {
+    const group = facetGroups.find((item) => item.fields.includes(field));
+    setFacetQuery("");
+    setCollapsed((current) => current.filter((name) => name !== group?.name));
+    setOpenFacet(field);
+    setTimeout(
+      () =>
+        document
+          .querySelector(`[data-facet="${field}"]`)
+          ?.scrollIntoView({ block: "nearest" }),
+      50,
+    );
+  };
   const exportTests = () => {
     const blob = new Blob([JSON.stringify(filtered, null, 2)], {
       type: "application/json",
@@ -445,7 +483,7 @@ export function NetworkPath() {
       />
       <span className={`np-status-line ${test.reach ? "" : "down"}`} />
       <button className="np-source-link" onClick={() => openDetail(test)}>
-        {test.source}
+        <SourceName name={test.source} />
       </button>
       <ArrowRight size={14} />
       <button className="np-link" onClick={() => openDetail(test)}>
@@ -615,7 +653,6 @@ export function NetworkPath() {
               My View
             </button>
             <h1>Network Path</h1>
-            <small className="np-demo">Demo data</small>
             <div className="np-module-tabs">
               <div>
                 {["Explorer", "Dashboards"].map((item) => (
@@ -627,23 +664,10 @@ export function NetworkPath() {
                       closeDetail();
                     }}
                   >
-                    {item === "Dashboards" && <Activity size={12} />}
                     {item}
-                    {item === "Dashboards" && <ChevronDown size={10} />}
                   </button>
                 ))}
               </div>
-              {!detailOpen && (
-                <button
-                  className="np-primary"
-                  onClick={() => {
-                    setFormError("");
-                    setDrawer("new");
-                  }}
-                >
-                  <Plus size={14} /> New Test
-                </button>
-              )}
             </div>
             <div className="np-viewbar">
               {!detailOpen && (
@@ -704,6 +728,17 @@ export function NetworkPath() {
                   <RefreshCw size={13} />
                 </IconButton>
               </div>
+              {!detailOpen && (
+                <button
+                  className="np-primary"
+                  onClick={() => {
+                    setFormError("");
+                    setDrawer("new");
+                  }}
+                >
+                  <Plus size={14} /> New Test
+                </button>
+              )}
             </div>
           </div>
           {notice && (
@@ -822,7 +857,9 @@ export function NetworkPath() {
                       <SelectValue>
                         {view === "Individual Tests"
                           ? "Individual Tests"
-                          : "Group by tags"}
+                          : groupBy === "destination"
+                            ? "destination.hostname"
+                            : "source.display_name × destination.hostname"}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="np-view-menu">
@@ -838,15 +875,11 @@ export function NetworkPath() {
                     </SelectContent>
                   </Select>
                 </div>
-                <button
-                  className="np-blue-link"
-                  onClick={() => {
-                    setOpenFacet("Protocol");
-                    setCollapsed([]);
-                  }}
-                >
-                  <Plus size={13} /> Add Facet
-                </button>
+                <AddFacetMenu onPick={revealFacet}>
+                  <button type="button" className="np-blue-link">
+                    <Plus size={13} /> Add Facet
+                  </button>
+                </AddFacetMenu>
                 <button
                   className="np-blue-link"
                   onClick={() => {
@@ -886,14 +919,11 @@ export function NetworkPath() {
                         ).length
                     }{" "}
                     of 20{" "}
-                    <button
-                      onClick={() => {
-                        setOpenFacet("Protocol");
-                        setCollapsed([]);
-                      }}
-                    >
-                      <Plus size={12} /> Add
-                    </button>
+                    <AddFacetMenu onPick={revealFacet}>
+                      <button type="button">
+                        <Plus size={12} /> Add
+                      </button>
+                    </AddFacetMenu>
                   </div>
                   {facetGroups.map((group) => (
                     <div key={group.name}>
@@ -925,6 +955,7 @@ export function NetworkPath() {
                             <div key={field}>
                               <button
                                 className="np-facet-field"
+                                data-facet={field}
                                 onClick={() =>
                                   setOpenFacet(
                                     openFacet === field ? null : field,
@@ -1041,6 +1072,24 @@ export function NetworkPath() {
                         : filtered.length}{" "}
                       results
                     </span>
+                    <label className="np-top-limit">
+                      Show top{" "}
+                      <select
+                        aria-label="Show top results"
+                        value={limit}
+                        onChange={(event) => {
+                          setLimit(Number(event.target.value));
+                          resetPage();
+                        }}
+                      >
+                        {[100, 500, 1000].map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>{" "}
+                      results
+                    </label>
                     <button
                       className="np-outline"
                       disabled={!selected.length}
@@ -1134,7 +1183,7 @@ export function NetworkPath() {
                                   onClick={() => openDetail(test)}
                                 >
                                   {groupBy === "source"
-                                    ? test.source
+                                    ? <SourceName name={test.source} />
                                     : `${items.length} source${items.length > 1 ? "s" : ""}`}
                                 </button>
                                 <button
@@ -1186,24 +1235,6 @@ export function NetworkPath() {
                     )}
                   </div>
                   <div className="np-pagination">
-                    <div>
-                      Show top{" "}
-                      <div className="np-segment">
-                        {[100, 1000].map((value) => (
-                          <button
-                            className={limit === value ? "active" : ""}
-                            key={value}
-                            onClick={() => {
-                              setLimit(value);
-                              resetPage();
-                            }}
-                          >
-                            {value}
-                          </button>
-                        ))}
-                      </div>{" "}
-                      results
-                    </div>
                     <span className="np-update">
                       {paused ? "Paused" : `Updated: ${refreshed}`}
                     </span>
@@ -1228,7 +1259,17 @@ export function NetworkPath() {
                     >
                       <ChevronLeft size={12} />
                     </IconButton>
-                    <span>{page}</span>
+                    <span>
+                      {page} /{" "}
+                      {Math.max(
+                        1,
+                        Math.ceil(
+                          (view === "Grouped Tests"
+                            ? groups.length
+                            : filtered.length) / pageSize,
+                        ),
+                      )}
+                    </span>
                     <IconButton
                       label="Next page"
                       onClick={() =>
@@ -1276,7 +1317,7 @@ export function NetworkPath() {
                       className="np-source-link"
                       onClick={() => openDetail(test)}
                     >
-                      {test.source}
+                      <SourceName name={test.source} />
                       <small>{test.id}</small>
                     </button>
                     <Destination name={test.destination} />
@@ -1302,42 +1343,14 @@ export function NetworkPath() {
             </section>
           )}
           {tab === "Dashboards" && (
-            <section className="np-secondary">
-              <h2>Network Path Overview</h2>
-              <div className="np-dashboard-stats">
-                {[
-                  ["Tests", tests.length],
-                  ["Reachable", tests.filter((test) => test.reach > 0).length],
-                  ["Unreachable", tests.filter((test) => !test.reach).length],
-                  [
-                    "Average RTT",
-                    `${Math.round(tests.reduce((sum, test) => sum + test.rtt, 0) / (tests.length || 1))} ms`,
-                  ],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                  </div>
-                ))}
-              </div>
-              <h3>Destination Performance</h3>
-              {tests.map((test) => (
-                <div className="np-dashboard-row" key={test.id}>
-                  <Destination name={test.destination} />
-                  <div className="np-reach-bar">
-                    <span style={{ width: `${test.reach}%` }} />
-                  </div>
-                  <strong>{test.reach}%</strong>
-                  <span>{test.rtt} ms</span>
-                  <button
-                    className="np-blue-link"
-                    onClick={() => openDetail(test)}
-                  >
-                    View Path <ArrowRight size={12} />
-                  </button>
-                </div>
-              ))}
-            </section>
+            <NetworkPathDashboard
+              tests={tests}
+              renderDestination={(name) => <Destination name={name} />}
+              onOpen={(id) => {
+                const test = tests.find((item) => item.id === id);
+                if (test) openDetail(test);
+              }}
+            />
           )}
         </main>
       </div>
@@ -1402,8 +1415,8 @@ export function NetworkPath() {
                     port: newProtocol === "ICMP" ? "" : newPort,
                     reach: 0,
                     rtt: 0,
-                    site: "hong-kong",
-                    env: "simulation",
+                    site: "sh-dc1",
+                    env: "production",
                     interval: newInterval,
                   };
                   setTests([...tests, created]);
@@ -1474,7 +1487,7 @@ export function NetworkPath() {
                 <label>
                   Tags
                   <input
-                    defaultValue="env:simulation, site:hong-kong"
+                    defaultValue="env:production, site:sh-dc1"
                     readOnly
                   />
                 </label>
