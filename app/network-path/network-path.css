@@ -1,9 +1,9 @@
 .np-app {
-  --np-blue: #409eff;
-  --np-border: #e7eaf0;
-  --np-ink: #374550;
-  font-family: "Helvetica Neue", "PingFang SC", sans-serif;
-  font-size: 12px;
+  --np-blue: #1677ff;
+  --np-border: #e4e8ee;
+  --np-ink: #303133;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
   color: var(--np-ink);
   background: #fff;
   height: 100dvh;
@@ -55,15 +55,15 @@
   border-color: var(--np-blue);
 }
 .np-top {
-  height: 30px;
-  min-height: 30px;
-  background: #1e334f;
+  height: 44px;
+  min-height: 44px;
+  background: #14284b;
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 0 12px;
-  font-size: 11px;
+  gap: 20px;
+  padding: 0 16px;
+  font-size: 13px;
 }
 .np-top span,
 .np-top-right,
@@ -75,7 +75,7 @@
 }
 .np-brand {
   font-weight: 500;
-  font-size: 12px;
+  font-size: 16px;
 }
 .np-top i {
   height: 13px;
@@ -91,7 +91,7 @@
   min-height: 0;
 }
 .np-nav {
-  width: 148px;
+  width: 200px;
   flex-shrink: 0;
   border-right: 1px solid var(--np-border);
   overflow: auto;
@@ -101,9 +101,9 @@
 }
 .np-nav > div > button {
   width: 100%;
-  height: 34px;
-  padding: 0 9px;
-  font-size: 11px;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
   justify-content: flex-start;
   gap: 8px;
 }
@@ -123,19 +123,19 @@
 .np-subnav button {
   width: 100%;
   justify-content: flex-start;
-  padding: 0 24px;
-  height: 29px;
-  font-size: 11px;
+  padding: 0 36px;
+  height: 36px;
+  font-size: 14px;
 }
 .np-subnav button.active {
   color: var(--np-blue);
-  background: #f3f6fa;
+  background: #eef4fd;
   border-right: 2px solid var(--np-blue);
 }
 .np-nav footer {
   margin-top: auto;
   padding: 24px 15px 8px 45px;
-  font-size: 10px;
+  font-size: 12px;
   color: #888;
   display: flex;
   justify-content: space-between;
@@ -150,16 +150,19 @@
 .np-workspace-tabs {
   display: flex;
   align-items: center;
-  background: #e9ebf0;
-  height: 30px;
-  min-height: 30px;
-  font-size: 11px;
-  gap: 15px;
+  background: #e6e8ec;
+  height: 44px;
+  min-height: 44px;
+  font-size: 14px;
+  gap: 20px;
 }
 .np-workspace-tabs > span:first-child {
   background: #fff;
   color: var(--np-blue);
-  padding: 9px 12px;
+  padding: 0 14px;
+  align-self: stretch;
+  margin-top: 6px;
+  border-radius: 3px 3px 0 0;
 }
 .np-workspace-tabs > span,
 .np-workspace-tabs > a {
@@ -183,26 +186,26 @@
   border-bottom: 1px solid var(--np-border);
 }
 .np-module-header h1 {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   margin-left: 0;
   white-space: nowrap;
 }
 .np-module-header > span {
   color: #7b848d;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-module-header > strong {
   height: 39px;
   display: flex;
   align-items: center;
   border-bottom: 2px solid var(--np-blue);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 }
 .np-demo {
   margin-left: 0;
-  font-size: 10px;
+  font-size: 12px;
   color: #929ba5;
 }
 .np-module-tabs {
@@ -220,7 +223,7 @@
 .np-module-tabs > div > button {
   position: relative;
   padding: 8px 14px 4px;
-  font-size: 11px;
+  font-size: 13px;
   border-bottom: 2px solid transparent;
 }
 .np-module-tabs > div > button.active {
@@ -234,7 +237,7 @@
   top: 1px;
   left: 14px;
   color: #a36cdf;
-  font-size: 8px;
+  font-size: 10px;
   line-height: 8px;
 }
 .np-module-tabs .np-new-label {
@@ -264,20 +267,20 @@
   gap: 12px;
   margin-left: auto;
   min-height: 35px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-app .np-my-view {
   padding: 4px 8px;
   border: 1px solid var(--np-border);
   border-radius: 2px;
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .np-icon {
-  min-width: 23px;
-  width: 23px;
-  height: 23px;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border-radius: 2px;
 }
@@ -292,12 +295,12 @@
   align-items: center;
 }
 .np-timebar > span {
-  font-size: 10px;
+  font-size: 12px;
   color: #888;
   margin-right: 8px;
 }
 .np-timebar select {
-  height: 23px;
+  height: 28px;
   width: 205px;
   padding: 0 8px;
 }
@@ -321,14 +324,14 @@
   background: #fff;
   width: 155px;
   padding-left: 7px;
-  height: 29px;
+  height: 32px;
 }
 .np-search input {
   border: 0;
   width: 100%;
   padding: 4px;
   background: transparent;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-search .np-icon {
   border-left: 1px solid #d9dfe8;
@@ -337,8 +340,8 @@
 .np-filter {
   position: relative;
   width: 134px;
-  padding-top: 10px;
-  font-size: 11px;
+  padding-top: 14px;
+  font-size: 13px;
 }
 .np-filter > span {
   position: absolute;
@@ -353,39 +356,39 @@
 }
 .np-filter select {
   width: 100%;
-  height: 23px;
+  height: 28px;
   padding: 0 5px;
   color: #85909a;
 }
 .np-app .np-blue-link {
   color: #268ded;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-view-options {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-view-options > span {
   background: #eaedf2;
   border: 1px solid #d6dde7;
   border-right: 0;
   padding: 0 7px;
-  height: 29px;
+  height: 32px;
   display: flex;
   align-items: center;
   color: #697580;
 }
 .np-app .np-view-trigger {
-  height: 29px;
+  height: 32px;
   width: 205px;
   justify-content: space-between;
   text-align: left;
   padding: 0 7px;
   border: 1px solid #a7c7ef;
   border-radius: 0 3px 3px 0;
-  font-size: 11px;
+  font-size: 13px;
   color: #85909a;
   background: #fff;
   box-shadow: none;
@@ -395,11 +398,11 @@
   color: #405364;
   border: 1px solid #d6dde7;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 13px;
   max-width: calc(100vw - 20px);
 }
 .np-view-menu [role="option"] {
-  font-size: 11px;
+  font-size: 13px;
   overflow-wrap: anywhere;
   white-space: normal;
 }
@@ -417,7 +420,7 @@
   padding: 3px 9px;
   border-right: 1px solid #d6dde7;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-segment button:last-child {
   border-right: 0;
@@ -455,7 +458,7 @@
 .np-facet-search input {
   border: 0;
   width: 100%;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-facet-meta {
   display: flex;
@@ -463,7 +466,7 @@
   justify-content: space-between;
   padding: 12px 4px 7px;
   color: #7c8690;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-facet-meta button {
   color: var(--np-blue);
@@ -471,10 +474,10 @@
 .np-app .np-facet-group {
   background: #e9edf3;
   border-radius: 2px;
-  height: 23px;
+  height: 28px;
   width: 100%;
   justify-content: flex-start;
-  font-size: 10px;
+  font-size: 12px;
   color: #6c7884;
   padding: 0 7px;
 }
@@ -482,7 +485,7 @@
   width: 100%;
   padding: 7px 6px;
   border-bottom: 1px solid var(--np-border);
-  font-size: 11px;
+  font-size: 13px;
   justify-content: flex-start;
   font-weight: 600;
   text-align: left;
@@ -504,7 +507,7 @@
   display: flex;
   width: 100%;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 12px;
   padding: 5px;
   text-align: left;
   overflow-wrap: anywhere;
@@ -521,8 +524,8 @@
   align-items: center;
   gap: 5px;
   margin-bottom: 12px;
-  min-height: 23px;
-  font-size: 10px;
+  min-height: 28px;
+  font-size: 12px;
   flex-wrap: wrap;
 }
 .np-results-toolbar > span {
@@ -540,7 +543,7 @@
   display: grid;
   grid-template-columns: 24px 32% 32% 1fr;
   color: #8b949c;
-  font-size: 10px;
+  font-size: 12px;
   border-bottom: 1px solid var(--np-border);
   height: 20px;
   align-items: center;
@@ -555,8 +558,8 @@
   align-items: center;
 }
 .np-group-header {
-  height: 23px;
-  font-size: 10px;
+  height: 28px;
+  font-size: 12px;
   font-weight: 600;
   border-bottom: 1px solid var(--np-border);
 }
@@ -568,7 +571,7 @@
 .np-group-row {
   min-height: 39px;
   border-bottom: 1px solid var(--np-border);
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-group-row > button:not(:first-child) {
   border-right: 1px solid var(--np-border);
@@ -594,7 +597,7 @@
 }
 .np-ci-name {
   color: #909399;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-metric {
   display: flex;
@@ -604,7 +607,7 @@
   padding: 3px 10px;
 }
 .np-metric strong {
-  font-size: 11px;
+  font-size: 13px;
   white-space: nowrap;
 }
 .np-spark {
@@ -613,7 +616,7 @@
   flex-shrink: 0;
 }
 .np-spark text {
-  font-size: 7px;
+  font-size: 9px;
   fill: #64727e;
 }
 .np-expanded {
@@ -630,14 +633,14 @@
   gap: 6px;
 }
 .np-test-header {
-  font-size: 10px;
+  font-size: 12px;
   height: 22px;
   font-weight: 600;
   background: #f4f6f8;
 }
 .np-test-row {
   min-height: 39px;
-  font-size: 11px;
+  font-size: 13px;
   border-top: 1px solid var(--np-border);
 }
 .np-test-row > input {
@@ -664,7 +667,7 @@
 .np-tags > span {
   background: #edf0f5;
   color: #51637f;
-  font-size: 10px;
+  font-size: 12px;
   padding: 0 3px;
   white-space: nowrap;
   overflow: hidden;
@@ -677,14 +680,14 @@
   border: 1px solid #d6dde7;
   background: white;
   padding: 0 3px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-protocol {
   justify-self: start;
   background: #eef1f6;
   color: #506780;
   padding: 0 3px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-test-row .np-metric {
   padding: 3px;
@@ -702,7 +705,7 @@
   align-items: center;
   padding-top: 7px;
   gap: 5px;
-  font-size: 10px;
+  font-size: 12px;
   color: #667581;
 }
 .np-pagination > div {
@@ -712,7 +715,7 @@
 }
 .np-pagination .np-segment button {
   padding: 2px 6px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-pagination .np-segment button.active {
   background: #edf6ff;
@@ -744,20 +747,20 @@
   background: #edf6ff;
   color: #247bb8;
   padding: 3px 14px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-secondary {
   padding: 20px;
   overflow: auto;
 }
 .np-secondary h2 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   margin-bottom: 20px;
 }
 .np-secondary h3,
 .np-detail-body h3 {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   margin: 24px 0 12px;
 }
@@ -781,7 +784,7 @@
 }
 .np-config-header {
   background: #f8f9fb;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-config-row .np-source-link {
   display: block;
@@ -810,7 +813,7 @@
 }
 .np-as-table > div:first-child {
   background: #f8f9fb;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-dashboard-stats {
   display: grid;
@@ -879,7 +882,7 @@
 }
 .np-drawer > header small {
   color: #929ba5;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-drawer h2 {
   font-size: 20px;
@@ -925,7 +928,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-detail-stats {
   display: grid;
@@ -942,7 +945,7 @@
 }
 .np-detail-stats span {
   color: #8d97a1;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-detail-stats strong {
   font-size: 21px;
@@ -955,7 +958,7 @@
 .np-route-name {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-path-nodes {
   display: grid;
@@ -970,7 +973,7 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-hop-icon {
   width: 43px;
@@ -1005,17 +1008,17 @@
   padding: 10px 6px;
   border-bottom: 1px solid var(--np-border);
   gap: 5px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-hops-table > div:first-child {
   background: #f8f9fb;
-  font-size: 10px;
+  font-size: 12px;
 }
 .np-detail-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .np-detail-tags span {
   background: #eef1f6;
@@ -1072,7 +1075,7 @@
     padding: 0 8px;
   }
   .np-brand {
-    font-size: 10px;
+    font-size: 12px;
   }
   .np-top > svg,
   .np-top > span,
@@ -1083,7 +1086,7 @@
   }
   .np-top-right {
     gap: 8px;
-    font-size: 9px;
+    font-size: 11px;
   }
   .np-nav {
     display: none;
@@ -1096,7 +1099,7 @@
     min-height: 45px;
   }
   .np-module-header h1 {
-    font-size: 12px;
+    font-size: 14px;
     margin-left: 0;
   }
   .np-module-header > span {
@@ -1114,14 +1117,14 @@
   }
   .np-module-tabs > div > button {
     padding: 12px 7px 7px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .np-module-tabs small {
     left: 7px;
     top: 2px;
   }
   .np-module-tabs > .np-primary {
-    font-size: 10px;
+    font-size: 12px;
     padding: 4px 5px;
   }
   .np-viewbar {
@@ -1141,7 +1144,7 @@
     width: 120px;
   }
   .np-timebar > span {
-    font-size: 9px;
+    font-size: 11px;
   }
   .np-filterbar {
     padding: 10px 8px;
@@ -1164,10 +1167,10 @@
     display: none;
   }
   .np-results-toolbar {
-    font-size: 10px;
+    font-size: 12px;
   }
   .np-results-toolbar > .np-primary {
-    font-size: 10px;
+    font-size: 12px;
   }
   .np-pagination {
     flex-wrap: wrap;
@@ -1202,20 +1205,20 @@
     font-size: 18px;
   }
   .np-detail-source {
-    font-size: 10px;
+    font-size: 12px;
   }
   .np-hop {
-    font-size: 9px;
+    font-size: 11px;
   }
   .np-hop-arrow {
     right: -15px;
   }
   .np-hops-table > div {
     grid-template-columns: 30px 1fr 50px 70px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .np-app .np-notice {
-    font-size: 10px;
+    font-size: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
