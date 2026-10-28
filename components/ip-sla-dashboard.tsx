@@ -28,7 +28,7 @@ type Operation = {
   source: string;
   target: string;
   site: string;
-  type: "ICMP Echo" | "UDP Jitter";
+  type: "ICMP Jitter" | "UDP Jitter";
   quality: "Healthy" | "Warning" | "Critical" | "Down";
   collection: "success" | "error";
   fresh: boolean;
@@ -64,10 +64,10 @@ const coreSwitch = (prefix: string, index: 1 | 2) => `${prefix}-CORE-SW0${index}
 const firewall = (prefix: string, index: 1 | 2) => `${prefix}-FW0${index}`;
 
 const probeSpecs: { source: string; target: string; type: Operation["type"] }[] = [
-  ...sitePrefixes.map(prefix => ({ source: coreSwitch(prefix, 1), target: coreSwitch(prefix, 2), type: "ICMP Echo" as const })),
-  ...firewallPrefixes.map(prefix => ({ source: firewall(prefix, 1), target: firewall(prefix, 2), type: "ICMP Echo" as const })),
+  ...sitePrefixes.map(prefix => ({ source: coreSwitch(prefix, 1), target: coreSwitch(prefix, 2), type: "ICMP Jitter" as const })),
+  ...firewallPrefixes.map(prefix => ({ source: firewall(prefix, 1), target: firewall(prefix, 2), type: "ICMP Jitter" as const })),
   ...sitePrefixes.filter(prefix => prefix !== "BJ-HQ").map(prefix => ({ source: coreSwitch(prefix, 1), target: coreSwitch("BJ-HQ", 1), type: "UDP Jitter" as const })),
-  ...sitePrefixes.filter(prefix => prefix !== "BJ-HQ" && prefix !== "SH-DC1").map(prefix => ({ source: coreSwitch(prefix, 2), target: coreSwitch("SH-DC1", 1), type: "ICMP Echo" as const })),
+  ...sitePrefixes.filter(prefix => prefix !== "BJ-HQ" && prefix !== "SH-DC1").map(prefix => ({ source: coreSwitch(prefix, 2), target: coreSwitch("SH-DC1", 1), type: "ICMP Jitter" as const })),
   { source: firewall("GZ-HQ-EDGE", 1), target: firewall("BJ-HQ-EDGE", 1), type: "UDP Jitter" },
   { source: firewall("HZ-CAMPUS-EDGE", 1), target: firewall("SH-DC1-DMZ", 1), type: "UDP Jitter" },
   { source: firewall("SZ-DC1-SERVER", 1), target: firewall("SH-DC1-DMZ", 1), type: "UDP Jitter" },
@@ -114,7 +114,7 @@ function initialOperations(): Operation[] {
     const random = seeded(`${spec.source}>${spec.target}`);
     nextId[spec.source] = (nextId[spec.source] ?? 9) + 1;
     const id = String(nextId[spec.source]);
-    const jitter = spec.type === "UDP Jitter";
+    const jitter = true;
     const rtt = scenario.down ? null : scenario.rtt ?? round(baseRtt(spec.source, spec.target) * (0.94 + random() * 0.14));
     const jitterBase = (rtt ?? 0) * 0.012 + 0.2;
     const metrics = {
@@ -163,7 +163,7 @@ function reason(operation: Operation) {
 }
 
 function number(value: number | null, unit = "") {
-  return value === null ? "N/A" : `${Number(value.toFixed(1))}${unit}`;
+  return value === null ? "—" : `${Number(value.toFixed(1))}${unit}`;
 }
 
 function Badge({ state }: { state: Health }) {
@@ -209,7 +209,7 @@ function OperationTable({ operations, mode, onSelect, onToggle }: { operations: 
 
 function trend(operations: Operation[], hours: number, end: number) {
   const valid = operations.filter(usable);
-  const jitter = valid.filter(operation => operation.type === "UDP Jitter");
+  const jitter = valid.filter(operation => operation.jitterDs !== null);
   const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   const meanRtt = average(valid.flatMap(operation => operation.rtt === null ? [] : [operation.rtt]));
   const meanJitter = average(jitter.flatMap(operation => operation.jitterDs === null ? [] : [operation.jitterDs]));
@@ -264,7 +264,7 @@ export function IpSlaDashboard() {
   const chartOperations = selected ? [selected] : filtered;
   const data = trend(chartOperations, hours, end);
   const hasChart = chartOperations.some(usable);
-  const jitterOperations = filtered.filter(operation => usable(operation) && operation.type === "UDP Jitter").length;
+  const jitterOperations = filtered.filter(operation => usable(operation) && operation.jitterDs !== null).length;
 
   const exportCsv = () => {
     const rows = [["Device", "Source IP", "Operation ID", "Type", "Site", "Target CI", "Target IP", "Status", "RTT ms", "Jitter SD ms", "Jitter DS ms", "Loss SD %", "Loss DS %"], ...filtered.map(operation => [operation.device, operation.source, operation.id, operation.type, operation.site, operation.targetCi.name, operation.target, health(operation), operation.rtt ?? "", operation.jitterSd ?? "", operation.jitterDs ?? "", operation.lossSd ?? "", operation.lossDs ?? ""])];
@@ -304,7 +304,7 @@ export function IpSlaDashboard() {
           {selected ? <div className="sla-detail-toolbar"><button onClick={() => setSelectedKey(null)}><ArrowLeft size={14} />Back to dashboard</button><Badge state={health(selected)} /><span>{selected.type}</span><span>{selected.probe}</span><button className="sla-secondary sla-push-right" onClick={() => toggleCollection(selected)}>{selected.enabled ? <Pause size={13} /> : <Play size={13} />}{selected.enabled ? "Pause collection" : "Resume collection"}</button></div> : <div className="sla-filters">
             <label className="sla-search"><Search size={14} /><input aria-label="Search operations" placeholder="Search device, operation or target" value={query} onChange={event => setQuery(event.target.value)} /></label>
             <select aria-label="Site" value={site} onChange={event => setSite(event.target.value)}><option>All sites</option>{sites.map(value => <option key={value}>{value}</option>)}</select>
-            <select aria-label="Operation type" value={type} onChange={event => setType(event.target.value)}><option>All types</option><option>ICMP Echo</option><option>UDP Jitter</option></select>
+            <select aria-label="Operation type" value={type} onChange={event => setType(event.target.value)}><option>All types</option><option>ICMP Jitter</option><option>UDP Jitter</option></select>
             <select aria-label="Operation status" value={status} onChange={event => setStatus(event.target.value)}><option>All statuses</option>{healthOrder.map(value => <option key={value}>{value}</option>)}</select>
             <button className="sla-icon-button" title="Reset filters" aria-label="Reset filters" onClick={() => { setSite("All sites"); setType("All types"); setStatus("All statuses"); setQuery(""); }}><RefreshCw size={14} /></button>
             <button className="sla-secondary sla-push-right" onClick={exportCsv}><Download size={13} />Export</button>
@@ -323,10 +323,10 @@ export function IpSlaDashboard() {
           {selected && <section className="sla-result-strip"><div><span>Device execution</span><strong>{selected.quality === "Down" ? "Timeout" : "OK"}</strong></div><div><span>Collection</span><strong>{!selected.enabled ? "Paused" : selected.collection === "error" ? "SNMP error" : "Success"}</strong></div><div><span>Result freshness</span><strong>{!selected.fresh ? "Stale · 18 min ago" : !selected.enabled || selected.collection === "error" ? "Last retained result" : "Fresh · 30s ago"}</strong></div><div><span>Latest RTT</span><strong>{number(selected.rtt, " ms")}</strong></div><div><span>Quality condition</span><strong>{reason(selected)}</strong></div></section>}
 
           <DashboardSection title={selected ? "Operation quality" : "Quality monitoring"} note={`${selected ? "Unique device results" : `Mean across valid operations · ${filtered.filter(usable).length} RTT / ${jitterOperations} UDP Jitter`} · UTC`}>
-          <div className="sla-trend-grid">{([{ metric: "rtt", title: "Round-trip time", color: "#409eff", unit: "ms" }, { metric: "jitter", title: "Jitter · target → source", color: "#25a77a", unit: "ms" }, { metric: "loss", title: "Packet loss · target → source", color: "#d99519", unit: "%" }] as const).map(item => <section className="sla-panel" key={item.metric}><div className="sla-panel-title"><h3>{item.title}</h3><strong>{number(data[data.length - 1][item.metric], ` ${item.unit}`)}</strong></div>{!hasChart || (selected?.type === "ICMP Echo" && item.metric !== "rtt") || data.every(point => point[item.metric] === null) ? <div className="sla-chart-empty">{selected?.type === "ICMP Echo" && item.metric !== "rtt" ? "Not supported by ICMP Echo" : "No valid results in this scope"}</div> : <QualityChart data={data} metric={item.metric} color={item.color} unit={item.unit} />}</section>)}</div>
+          <div className="sla-trend-grid">{([{ metric: "rtt", title: "Round-trip time", color: "#409eff", unit: "ms" }, { metric: "jitter", title: "Jitter · target → source", color: "#25a77a", unit: "ms" }, { metric: "loss", title: "Packet loss · target → source", color: "#d99519", unit: "%" }] as const).map(item => <section className="sla-panel" key={item.metric}><div className="sla-panel-title"><h3>{item.title}</h3><strong>{number(data[data.length - 1][item.metric], ` ${item.unit}`)}</strong></div>{!hasChart || data.every(point => point[item.metric] === null) ? <div className="sla-chart-empty">{"No valid results in this scope"}</div> : <QualityChart data={data} metric={item.metric} color={item.color} unit={item.unit} />}</section>)}</div>
           </DashboardSection>
 
-          {selected ? <section className="sla-panel sla-direction-panel"><div className="sla-panel-title"><h3>Directional measurements</h3><div className="sla-segment" role="group" aria-label="Measurement direction"><button aria-pressed={direction === "sd"} className={direction === "sd" ? "active" : ""} onClick={() => setDirection("sd")}>Source → target</button><button aria-pressed={direction === "ds"} className={direction === "ds" ? "active" : ""} onClick={() => setDirection("ds")}>Target → source</button></div></div><div className="sla-direction-values"><div><span>Jitter</span><strong>{number(direction === "sd" ? selected.jitterSd : selected.jitterDs, " ms")}</strong></div><div><span>Packet loss</span><strong>{number(direction === "sd" ? selected.lossSd : selected.lossDs, "%")}</strong></div><div><span>Measurement capability</span><strong>{selected.type === "UDP Jitter" ? "Bidirectional UDP Jitter" : "RTT only"}</strong></div></div></section> : <>
+          {selected ? <section className="sla-panel sla-direction-panel"><div className="sla-panel-title"><h3>Directional measurements</h3><div className="sla-segment" role="group" aria-label="Measurement direction"><button aria-pressed={direction === "sd"} className={direction === "sd" ? "active" : ""} onClick={() => setDirection("sd")}>Source → target</button><button aria-pressed={direction === "ds"} className={direction === "ds" ? "active" : ""} onClick={() => setDirection("ds")}>Target → source</button></div></div><div className="sla-direction-values"><div><span>Jitter</span><strong>{number(direction === "sd" ? selected.jitterSd : selected.jitterDs, " ms")}</strong></div><div><span>Packet loss</span><strong>{number(direction === "sd" ? selected.lossSd : selected.lossDs, "%")}</strong></div><div><span>Measurement capability</span><strong>{"Bidirectional " + selected.type}</strong></div></div></section> : <>
             <DashboardSection title="Operation details">
               <section className="sla-panel" aria-label="Top RTT"><div className="sla-panel-title"><h3>Top RTT</h3><span>Latest valid result · descending</span></div><OperationTable operations={ranked} mode="ranking" onSelect={setSelectedKey} onToggle={toggleCollection} />{!ranked.length && <div className="sla-empty">No valid device results</div>}</section>
               <section className="sla-panel" aria-label="All operations"><div className="sla-panel-title"><h3>All operations <span className="sla-count">{filtered.length}</span></h3><span>Multi-vendor probes · latest result</span></div><OperationTable operations={filtered} mode="all" onSelect={setSelectedKey} onToggle={toggleCollection} />{!filtered.length && <div className="sla-empty">No operations match the filters</div>}</section>
