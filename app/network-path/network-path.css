@@ -1350,6 +1350,228 @@
     opacity: 1;
   }
 }
+@keyframes np-slide-left {
+  from {
+    transform: translateX(-40px);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.np-overlay-left {
+  justify-content: flex-start;
+}
+.np-views-drawer {
+  display: flex;
+  flex-direction: column;
+  width: 336px;
+  max-width: 100%;
+  height: 100%;
+  background: #fff;
+  box-shadow: 5px 0 20px #22354c12;
+  animation: np-slide-left 0.18s ease-out;
+}
+.np-views-head {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 8px;
+}
+.np-app .np-views-save {
+  height: 32px;
+  border-radius: 2px;
+  background: var(--np-blue);
+  color: #fff;
+  font-size: 14px;
+}
+.np-app .np-views-save:hover:not(:disabled) {
+  color: #fff;
+  background: #4096ff;
+}
+.np-views-naming {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.np-views-naming input {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+.np-app .np-views-confirm {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 2px;
+  background: var(--np-blue);
+  color: #fff;
+  font-size: 13px;
+}
+.np-app .np-views-confirm:hover:not(:disabled) {
+  color: #fff;
+}
+.np-app .np-views-cancel {
+  height: 32px;
+  padding: 0 4px;
+  font-size: 13px;
+  color: #606266;
+}
+.np-views-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d9dfe8;
+  border-radius: 2px;
+  color: #a8abb2;
+}
+.np-views-search:focus-within {
+  border-color: var(--np-blue);
+}
+.np-app .np-views-search input {
+  flex: 1;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  font-size: 14px;
+}
+.np-views-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #909399;
+}
+.np-app .np-views-toggle button {
+  position: relative;
+  width: 32px;
+  height: 16px;
+  border-radius: 8px;
+  background: #c0c4cc;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.np-app .np-views-toggle button.on {
+  background: var(--np-blue);
+}
+.np-views-toggle button span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.np-views-toggle button.on span {
+  transform: translateX(16px);
+}
+.np-views-list {
+  flex: 1;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.np-views-list > li {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 20px 10px 17px;
+  border-left: 3px solid transparent;
+}
+.np-views-list > li:hover {
+  background: #f5f7fa;
+}
+.np-views-list > li.active {
+  background: #e8f3ff;
+  border-left-color: var(--np-blue);
+}
+.np-views-star,
+.np-app .np-views-star-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--np-blue);
+}
+.np-views-star.on,
+.np-app .np-views-star-btn.on {
+  color: #faad14;
+}
+.np-views-star.on,
+.np-views-star-btn.on svg {
+  fill: currentColor;
+}
+.np-app .np-views-star-btn:hover:not(:disabled) {
+  color: #faad14;
+}
+.np-app .np-views-main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+  text-align: left;
+}
+.np-views-main strong {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--np-ink);
+  line-height: 20px;
+}
+.np-views-main small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 13px;
+  color: #909399;
+}
+.np-app .np-views-main:hover:not(:disabled) strong {
+  color: var(--np-blue);
+}
+.np-app .np-views-rename {
+  width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 14px;
+}
+.np-views-actions {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  display: none;
+  gap: 8px;
+  color: #909399;
+}
+.np-views-list > li:hover .np-views-actions,
+.np-views-list > li.active .np-views-actions,
+.np-views-list > li:focus-within .np-views-actions {
+  display: inline-flex;
+}
+.np-app .np-views-actions button {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.np-views-empty {
+  justify-content: center;
+  color: #909399;
+  font-size: 14px;
+}
 @media (min-width: 1600px) {
   .np-group-table {
     min-width: 1040px;

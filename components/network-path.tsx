@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
 import { CiLink } from "@/components/ci-link";
 import { NetworkPathDashboard } from "@/components/network-path-dashboard";
+import {
+  NetworkPathViewsDrawer,
+  defaultViewConfig,
+  type ViewConfig,
+} from "@/components/network-path-views-drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
@@ -292,6 +297,7 @@ export function NetworkPath() {
   );
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [viewsOpen, setViewsOpen] = useState(false);
   const refresh = () => setRefreshed(new Date().toLocaleTimeString("en-GB"));
   useEffect(() => {
     const restoreDetail = () => {
@@ -441,13 +447,19 @@ export function NetworkPath() {
     setSaved(true);
     setNotice("View saved");
   };
-  const restoreView = () => {
-    const stored = localStorage.getItem("doop-network-path-view");
-    if (!stored) {
-      setNotice("No saved view");
-      return;
-    }
-    const config = JSON.parse(stored);
+  const currentConfig: ViewConfig = {
+    query,
+    source,
+    destination,
+    port,
+    protocol,
+    testId,
+    status,
+    view,
+    groupBy,
+    range,
+  };
+  const applyConfig = (config: ViewConfig) => {
     setQuery(config.query);
     setSource(config.source);
     setDestination(config.destination);
@@ -459,7 +471,15 @@ export function NetworkPath() {
     setGroupBy(config.groupBy);
     setRange(config.range);
     resetPage();
-    setNotice("Saved view restored");
+  };
+  const restoreView = () => {
+    const stored = localStorage.getItem("doop-network-path-view");
+    applyConfig(
+      stored
+        ? { ...defaultViewConfig, ...JSON.parse(stored) }
+        : defaultViewConfig,
+    );
+    setNotice(stored ? "Saved view restored" : "Default view restored");
   };
   const metrics = (test: Test) => (
     <>
@@ -649,7 +669,12 @@ export function NetworkPath() {
             >
               <span />
             </button>
-            <button className="np-my-view" onClick={restoreView}>
+            <button
+              className="np-my-view"
+              aria-haspopup="dialog"
+              aria-expanded={viewsOpen}
+              onClick={() => setViewsOpen(true)}
+            >
               My View
             </button>
             <h1>Network Path</h1>
@@ -1354,6 +1379,20 @@ export function NetworkPath() {
           )}
         </main>
       </div>
+      <NetworkPathViewsDrawer
+        open={viewsOpen}
+        current={currentConfig}
+        onClose={() => setViewsOpen(false)}
+        onDefault={() => {
+          restoreView();
+          setViewsOpen(false);
+        }}
+        onApply={(config, name) => {
+          applyConfig(config);
+          setNotice(`已应用视图：${name}`);
+          setViewsOpen(false);
+        }}
+      />
       {drawer && (
         <div className="np-overlay" onClick={() => setDrawer(null)}>
           <section
