@@ -695,7 +695,7 @@
 .np-test-row {
   display: grid;
   grid-template-columns:
-    18px 8px minmax(180px, 1.2fr) 24px minmax(240px, 1.5fr)
+    8px minmax(180px, 1.2fr) 24px minmax(240px, 1.5fr)
     minmax(190px, 1.2fr) 84px 56px minmax(130px, 1fr) minmax(130px, 1fr);
   align-items: center;
   gap: 6px;
@@ -723,11 +723,6 @@
   min-height: 48px;
   font-size: 13px;
   border-top: 1px solid #ebeef5;
-}
-.np-test-row > input {
-  width: 11px;
-  height: 11px;
-  accent-color: var(--np-blue);
 }
 .np-status-line {
   height: 27px;

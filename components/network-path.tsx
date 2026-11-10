@@ -275,8 +275,7 @@ export function NetworkPath() {
   const [openFacet, setOpenFacet] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(["8.8.8.8", "1.1.1.1"]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [drawer, setDrawer] = useState<"new" | "detail" | "map" | null>(null);
+  const [drawer, setDrawer] = useState<"new" | "detail" | null>(null);
   const [detail, setDetail] = useState<Test>(initialTests[1]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -383,12 +382,6 @@ export function NetworkPath() {
     }, {}),
   );
   const visibleGroups = groups.slice((page - 1) * pageSize, page * pageSize);
-  const toggleSelected = (id: string) =>
-    setSelected(
-      selected.includes(id)
-        ? selected.filter((item) => item !== id)
-        : [...selected, id],
-    );
   const openDetail = (test: Test) => {
     setDetail(test);
     setDetailOpen(true);
@@ -495,12 +488,6 @@ export function NetworkPath() {
   );
   const testRow = (test: Test) => (
     <div className="np-test-row" key={test.id}>
-      <input
-        aria-label={`Select ${test.destination} ${test.id}`}
-        type="checkbox"
-        checked={selected.includes(test.id)}
-        onChange={() => toggleSelected(test.id)}
-      />
       <span className={`np-status-line ${test.reach ? "" : "down"}`} />
       <button className="np-source-link" onClick={() => openDetail(test)}>
         <SourceName name={test.source} />
@@ -527,7 +514,6 @@ export function NetworkPath() {
   );
   const testHeader = (
     <div className="np-test-header">
-      <span />
       <span />
       <span>SOURCE</span>
       <span />
@@ -1115,21 +1101,6 @@ export function NetworkPath() {
                       </select>{" "}
                       results
                     </label>
-                    <button
-                      className="np-outline"
-                      disabled={!selected.length}
-                      onClick={() => setSelected([])}
-                    >
-                      Clear Selections
-                    </button>
-                    <button
-                      className="np-primary"
-                      disabled={selected.length < 2}
-                      onClick={() => setDrawer("map")}
-                    >
-                      <Map size={12} /> Create Multi-Test Map
-                      {selected.length > 0 ? ` (${selected.length})` : ""}
-                    </button>
                   </div>
                   <div className="np-table-scroll">
                     {view === "Grouped Tests" ? (
@@ -1357,7 +1328,6 @@ export function NetworkPath() {
                       label={`Delete test ${test.destination}`}
                       onClick={() => {
                         setTests(tests.filter((item) => item.id !== test.id));
-                        setSelected(selected.filter((id) => id !== test.id));
                       }}
                     >
                       <X size={13} />
@@ -1396,15 +1366,13 @@ export function NetworkPath() {
       {drawer && (
         <div className="np-overlay" onClick={() => setDrawer(null)}>
           <section
-            className={`np-drawer ${drawer === "map" ? "np-wide-drawer" : ""}`}
+            className="np-drawer"
             role="dialog"
             aria-modal="true"
             aria-label={
               drawer === "new"
                 ? "New Network Path Test"
-                : drawer === "map"
-                  ? "Multi-Test Map"
-                  : "Network Path Details"
+                : "Network Path Details"
             }
             onClick={(event) => event.stopPropagation()}
           >
@@ -1412,11 +1380,7 @@ export function NetworkPath() {
               <div>
                 <small>NETWORK PATH</small>
                 <h2>
-                  {drawer === "new"
-                    ? "New Test"
-                    : drawer === "map"
-                      ? "Multi-Test Map"
-                      : detail.destination}
+                  {drawer === "new" ? "New Test" : detail.destination}
                 </h2>
               </div>
               <IconButton label="Close dialog" onClick={() => setDrawer(null)}>
@@ -1584,10 +1548,7 @@ export function NetworkPath() {
                     </small>
                   </>
                 )}
-                {(drawer === "map"
-                  ? tests.filter((test) => selected.includes(test.id))
-                  : [detail]
-                ).map((test) => (
+                {[detail].map((test) => (
                   <div key={test.id} className="np-route">
                     <div className="np-route-name">
                       <Destination name={test.destination} />
