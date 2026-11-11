@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useNpI18n } from "@/lib/network-path-i18n";
 
 type AnalysisHop = {
   id: string;
@@ -76,6 +77,7 @@ export function NetworkPathAnalysis({
   startTime,
   endTime,
 }: Props) {
+  const { t, isZh } = useNpI18n();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("gateway");
   const [columns, setColumns] = useState<ColumnKey[]>(allColumns);
@@ -176,14 +178,14 @@ export function NetworkPathAnalysis({
     return (
       <section
         className={`npd-metric-chart ${enlarged ? "enlarged" : ""}`}
-        aria-label={titles[key]}
+        aria-label={t(titles[key])}
       >
         <header>
-          <h4>{titles[key]}</h4>
+          <h4>{t(titles[key])}</h4>
           <div>
             <button
-              title={`Export ${titles[key]}`}
-              aria-label={`Export ${titles[key]}`}
+              title={t(`Export ${titles[key]}`)}
+              aria-label={t(`Export ${titles[key]}`)}
               onClick={() =>
                 downloadCsv(`network-path-${key}.csv`, [
                   [
@@ -200,8 +202,8 @@ export function NetworkPathAnalysis({
               <Download size={13} />
             </button>
             <button
-              title={enlarged ? "Close chart" : `Expand ${titles[key]}`}
-              aria-label={enlarged ? "Close chart" : `Expand ${titles[key]}`}
+              title={enlarged ? t("Close chart") : t(`Expand ${titles[key]}`)}
+              aria-label={enlarged ? t("Close chart") : t(`Expand ${titles[key]}`)}
               onClick={() => setFullscreen(enlarged ? null : key)}
             >
               {enlarged ? <X size={15} /> : <Expand size={13} />}
@@ -233,7 +235,7 @@ export function NetworkPathAnalysis({
                 tickLine={false}
                 axisLine={false}
                 label={{
-                  value: key === "reach" ? "Percent" : "Milliseconds",
+                  value: t(key === "reach" ? "Percent" : "Milliseconds"),
                   angle: -90,
                   position: "insideLeft",
                   style: { fontSize: 9, fill: "#8b99a5" },
@@ -241,7 +243,7 @@ export function NetworkPathAnalysis({
               />
               <Tooltip
                 labelFormatter={(value) =>
-                  new Intl.DateTimeFormat("en-GB", {
+                  new Intl.DateTimeFormat(isZh ? "zh-CN" : "en-GB", {
                     timeZone: "Asia/Hong_Kong",
                     dateStyle: "medium",
                     timeStyle: "short",
@@ -249,7 +251,7 @@ export function NetworkPathAnalysis({
                 }
                 formatter={(value: number) => [
                   key === "reach" ? `${value}%` : formatRtt(value),
-                  key === "hop" ? selected?.label : titles[key],
+                  key === "hop" ? selected?.label : t(titles[key]),
                 ]}
                 contentStyle={{
                   fontSize: 11,
@@ -271,7 +273,7 @@ export function NetworkPathAnalysis({
           </ResponsiveContainer>
           {noData && (
             <span className="npd-chart-empty">
-              {key === "rtt" && reach === 0 ? "N/A" : "No RTT samples"}
+              {key === "rtt" && reach === 0 ? "N/A" : t("No RTT samples")}
             </span>
           )}
         </div>
@@ -283,7 +285,7 @@ export function NetworkPathAnalysis({
             }
           >
             {key === "hop"
-              ? selected?.label || "No hops"
+              ? selected?.label || t("No hops")
               : `${destination}, ${source}`}
           </span>
         </div>
@@ -293,30 +295,30 @@ export function NetworkPathAnalysis({
 
   return (
     <div className="npd-analysis npd-analysis-dashboard">
-      <h3>End-to-End Metrics</h3>
+      <h3>{t("End-to-End Metrics")}</h3>
       <div className="npd-analysis-grid">
         {renderChart("reach")}
         {renderChart("rtt")}
       </div>
-      <h3>Hop RTT Latency</h3>
+      <h3>{t("Hop RTT Latency")}</h3>
       <div className="npd-analysis-grid npd-hop-analysis-grid">
-        <section className="npd-hop-metrics" aria-label="Hop metrics">
+        <section className="npd-hop-metrics" aria-label={t("Hop metrics")}>
           <div className="npd-hop-table-tools">
             <span>
-              Showing {filteredRows.length ? `1–${filteredRows.length}` : "0"}{" "}
-              of {rows.length} hops
+              {t("Showing")} {filteredRows.length ? `1–${filteredRows.length}` : "0"}{" "}
+              {isZh ? "/ 共" : "of"} {rows.length} {isZh ? "跳" : "hops"}
             </span>
             <label>
               <Search size={13} />
               <input
-                aria-label="Search analysis hops"
-                placeholder="Search by name or IP address"
+                aria-label={t("Search analysis hops")}
+                placeholder={t("Search by name or IP address")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
             <details className="npd-column-settings">
-              <summary title="Table columns" aria-label="Table columns">
+              <summary title={t("Table columns")} aria-label={t("Table columns")}>
                 <Settings2 size={14} />
               </summary>
               <div>
@@ -333,15 +335,15 @@ export function NetworkPathAnalysis({
                         )
                       }
                     />
-                    {columnLabels[column]}
+                    {t(columnLabels[column])}
                   </label>
                 ))}
-                <button onClick={() => setColumns(allColumns)}>Reset</button>
+                <button onClick={() => setColumns(allColumns)}>{t("Reset")}</button>
               </div>
             </details>
             <button
-              title="Export hop metrics"
-              aria-label="Export hop metrics"
+              title={t("Export hop metrics")}
+              aria-label={t("Export hop metrics")}
               onClick={() =>
                 downloadCsv("network-path-hops.csv", [
                   [
@@ -389,7 +391,7 @@ export function NetworkPathAnalysis({
                         ).length
                       }
                     >
-                      PACKETS
+                      {t("PACKETS")}
                     </th>
                   )}
                   {columns.some(
@@ -402,17 +404,17 @@ export function NetworkPathAnalysis({
                         ).length
                       }
                     >
-                      RTT LATENCY
+                      {t("RTT LATENCY")}
                     </th>
                   )}
                 </tr>
                 <tr>
                   <th>#</th>
-                  <th>NAME</th>
+                  <th>{t("NAME")}</th>
                   {allColumns
                     .filter((column) => columns.includes(column))
                     .map((column) => (
-                      <th key={column}>{columnLabels[column]}</th>
+                      <th key={column}>{t(columnLabels[column])}</th>
                     ))}
                 </tr>
               </thead>
@@ -459,7 +461,7 @@ export function NetworkPathAnalysis({
             </table>
             {!filteredRows.length && (
               <div className="npd-analysis-empty">
-                No hops match your search
+                {t("No hops match your search")}
               </div>
             )}
           </div>

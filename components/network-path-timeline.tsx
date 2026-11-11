@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { PathSnapshot } from "@/lib/network-path-model";
+import { useNpI18n } from "@/lib/network-path-i18n";
 import {
   buildTicks,
   slotAtFraction,
@@ -57,6 +58,7 @@ export function PathTimeline({
   onSelect,
   onBrush,
 }: Props) {
+  const { t, isZh } = useNpI18n();
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef<DragState | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -171,14 +173,14 @@ export function PathTimeline({
     <div className="npd-tl">
       <div className="npd-tl-rows">
         <div className="npd-tl-labels" aria-hidden="true">
-          <span>Latency</span>
-          <span>Reachability</span>
+          <span>{t("Latency")}</span>
+          <span>{t("Reachability")}</span>
         </div>
         <div
           ref={trackRef}
           className="npd-tl-track"
           role="group"
-          aria-label="Latency and reachability history. Click to pick a snapshot, drag to select a time range."
+          aria-label={t("Latency and reachability history. Click to pick a snapshot, drag to select a time range.")}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -229,7 +231,7 @@ export function PathTimeline({
                   data-part={part}
                   role="slider"
                   className={`npd-tl-handle ${part}`}
-                  aria-label={part === "from" ? "Range start" : "Range end"}
+                  aria-label={t(part === "from" ? "Range start" : "Range end")}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={Math.round(brush[part] * 100)}
@@ -257,13 +259,13 @@ export function PathTimeline({
             >
               <strong>{formatTime(start + hover * duration)}</strong>
               {hoverSlot.missing ? (
-                <span>No data collected</span>
+                <span>{t("No data collected")}</span>
               ) : (
                 <span>
                   {hoverSnapshot.rtt === null
-                    ? "RTT N/A"
+                    ? t("RTT N/A")
                     : `${hoverSnapshot.rtt} ms`}{" "}
-                  · loss {hoverSnapshot.loss}%
+                  · {isZh ? "丢包" : "loss"} {hoverSnapshot.loss}%
                 </span>
               )}
             </div>

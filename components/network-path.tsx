@@ -10,6 +10,8 @@ import {
   type ViewConfig,
 } from "@/components/network-path-views-drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { NetworkPathLanguageSwitch } from "@/components/network-path-language-switch";
+import { useNpI18n } from "@/lib/network-path-i18n";
 import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
   Select,
@@ -82,13 +84,14 @@ function AddFacetMenu({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useNpI18n();
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="start" className="np-facet-menu">
         {facetGroups.map((group) => (
           <div key={group.name}>
-            <div className="np-facet-menu-group">{group.name}</div>
+            <div className="np-facet-menu-group">{t(group.name)}</div>
             {group.fields.map((field) => (
               <button
                 key={field}
@@ -98,7 +101,7 @@ function AddFacetMenu({
                   setOpen(false);
                 }}
               >
-                {field}
+                {t(field)}
               </button>
             ))}
           </div>
@@ -183,11 +186,12 @@ function IconButton({
   children: React.ReactNode;
   active?: boolean;
 }) {
+  const { t } = useNpI18n();
   return (
     <button
       type="button"
-      title={label}
-      aria-label={label}
+      title={t(label)}
+      aria-label={t(label)}
       onClick={onClick}
       className={`np-icon ${active ? "active" : ""}`}
     >
@@ -203,6 +207,7 @@ function Sparkline({
   value: number;
   latency?: boolean;
 }) {
+  const { t, isZh } = useNpI18n();
   const samples = Array.from({ length: 31 }, (_, index) =>
     value === 0
       ? 0
@@ -224,7 +229,7 @@ function Sparkline({
       className="np-spark"
       viewBox="0 0 90 30"
       role="img"
-      aria-label={`${latency ? "RTT" : "Reachability"} trend: ${value}${latency ? " ms" : "%"}`}
+      aria-label={`${t(latency ? "RTT" : "Reachability")}${isZh ? "趋势" : " trend"}: ${value}${latency ? " ms" : "%"}`}
     >
       <path
         d={`M0,28 L${points.replaceAll(" ", " L")} L90,28 Z`}
@@ -301,6 +306,7 @@ export function NetworkPath() {
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState(false);
   const [viewsOpen, setViewsOpen] = useState(false);
+  const { t, isZh } = useNpI18n();
   const refresh = () => setRefreshed(new Date().toLocaleTimeString("en-GB"));
   useEffect(() => {
     const restoreDetail = () => {
@@ -476,15 +482,16 @@ export function NetworkPath() {
         : defaultViewConfig,
     );
     setNotice(stored ? "Saved view restored" : "Default view restored");
+    /* 提示文案在渲染时统一翻译 */
   };
   const metrics = (test: Test) =>
     test.noData ? (
       <>
         <div className="np-metric">
-          <strong className="np-muted">No data</strong>
+          <strong className="np-muted">{t("No data")}</strong>
         </div>
         <div className="np-metric">
-          <strong className="np-muted">No data</strong>
+          <strong className="np-muted">{t("No data")}</strong>
         </div>
       </>
     ) : (
@@ -530,14 +537,14 @@ export function NetworkPath() {
   const testHeader = (
     <div className="np-test-header">
       <span />
-      <span>SOURCE</span>
+      <span>{t("SOURCE")}</span>
       <span />
-      <span>DESTINATION</span>
-      <span>TAGS</span>
-      <span>PROTOCOL</span>
-      <span>PORT</span>
-      <span>AVG REACHABILITY</span>
-      <span>AVG RTT</span>
+      <span>{t("DESTINATION")}</span>
+      <span>{t("TAGS")}</span>
+      <span>{t("PROTOCOL")}</span>
+      <span>{t("PORT")}</span>
+      <span>{t("AVG REACHABILITY")}</span>
+      <span>{t("AVG RTT")}</span>
     </div>
   );
   const facetValues = (field: string) =>
@@ -565,11 +572,11 @@ export function NetworkPath() {
       <header className="np-top">
         <div className="np-brand">
           <Cloud size={23} />
-          <span>Digital Operation Central Platform</span>
+          <span>{t("Digital Operation Central Platform")}</span>
         </div>
         <Home size={13} />
         <span>
-          Products <ChevronDown size={10} />
+          {t("Products")} <ChevronDown size={10} />
         </span>
         <i />
         <span>DOOP</span>
@@ -577,11 +584,9 @@ export function NetworkPath() {
           <Search size={13} />
           <Bell size={13} />
           <b>云智慧集团</b>
+          <NetworkPathLanguageSwitch tone="dark" />
           <span>
-            English <ChevronDown size={10} />
-          </span>
-          <span>
-            Admin <ChevronDown size={10} />
+            {t("Admin")} <ChevronDown size={10} />
           </span>
         </div>
       </header>
@@ -599,11 +604,12 @@ export function NetworkPath() {
                   item.label !== "Infrastructure" &&
                   setNotice(
                     `${item.label} is outside the Network Path prototype`,
+                    /* 渲染时由 t() 翻译 */
                   )
                 }
               >
                 <item.icon size={13} />
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
                 <ChevronDown size={11} />
               </button>
               {item.label === "Infrastructure" && (
@@ -631,7 +637,7 @@ export function NetworkPath() {
                         }
                       }}
                     >
-                      {label}
+                      {t(label)}
                     </button>
                   ))}
                 </div>
@@ -647,13 +653,13 @@ export function NetworkPath() {
           {showChrome && (
           <div className="np-workspace-tabs">
             <span>
-              <Network size={12} /> Network Path
+              <Network size={12} /> {t("Network Path")}
             </span>
             <a href="/pipeline">
-              Netflow Pipeline <X size={10} />
+              {t("Netflow Pipeline")} <X size={10} />
             </a>
             <span className="np-muted-tab">
-              default <X size={10} />
+              {t("default")} <X size={10} />
             </span>
             <MoreVertical size={13} />
           </div>
@@ -663,8 +669,8 @@ export function NetworkPath() {
               type="button"
               role="switch"
               aria-checked={showChrome}
-              aria-label="显示顶部导航与左侧菜单"
-              title={showChrome ? "隐藏导航" : "显示导航"}
+              aria-label={t("Show top navigation and side menu")}
+              title={t(showChrome ? "Hide navigation" : "Show navigation")}
               className={`np-chrome-switch${showChrome ? " on" : ""}`}
               onClick={() => setShowChrome((value) => !value)}
             >
@@ -676,9 +682,9 @@ export function NetworkPath() {
               aria-expanded={viewsOpen}
               onClick={() => setViewsOpen(true)}
             >
-              My View
+              {t("My View")}
             </button>
-            <h1>Network Path</h1>
+            <h1>{t("Network Path")}</h1>
             <div className="np-module-tabs">
               <div>
                 {["Explorer", "Dashboards"].map((item) => (
@@ -690,7 +696,7 @@ export function NetworkPath() {
                       closeDetail();
                     }}
                   >
-                    {item}
+                    {t(item)}
                   </button>
                 ))}
               </div>
@@ -706,7 +712,7 @@ export function NetworkPath() {
               <div className="np-timebar">
                 <span>UTC+08:00</span>
                 <select
-                  aria-label="Time range"
+                  aria-label={t("Time range")}
                   value={range}
                   onChange={(event) => {
                     setRange(event.target.value);
@@ -721,14 +727,16 @@ export function NetworkPath() {
                     "Past 1 Day",
                     "Past 7 Days",
                   ].map((item) => (
-                    <option key={item}>{item}</option>
+                    <option key={item} value={item}>
+                      {t(item)}
+                    </option>
                   ))}
                 </select>
                 {timeOffset !== 0 && (
                   <small>
-                    {Math.abs(timeOffset)} window
-                    {Math.abs(timeOffset) > 1 ? "s" : ""}{" "}
-                    {timeOffset < 0 ? "earlier" : "later"}
+                    {isZh
+                      ? `${Math.abs(timeOffset)} 个窗口${timeOffset < 0 ? "前" : "后"}`
+                      : `${Math.abs(timeOffset)} window${Math.abs(timeOffset) > 1 ? "s" : ""} ${timeOffset < 0 ? "earlier" : "later"}`}
                   </small>
                 )}
                 <IconButton
@@ -762,14 +770,15 @@ export function NetworkPath() {
                     setDrawer("new");
                   }}
                 >
-                  <Plus size={14} /> New Test
+                  <Plus size={14} /> {t("New Test")}
                 </button>
               )}
             </div>
+            {!showChrome && <NetworkPathLanguageSwitch />}
           </div>
           {notice && (
             <div className="np-notice" role="status">
-              {notice}
+              {t(notice)}
               <IconButton label="Dismiss" onClick={() => setNotice("")}>
                 <X size={12} />
               </IconButton>
@@ -800,8 +809,8 @@ export function NetworkPath() {
                     <Filter size={12} />
                   </IconButton>
                   <input
-                    aria-label="Search tests"
-                    placeholder="Search for"
+                    aria-label={t("Search tests")}
+                    placeholder={t("Search for")}
                     value={query}
                     onChange={(event) => {
                       setQuery(event.target.value);
@@ -847,16 +856,16 @@ export function NetworkPath() {
                   },
                 ].map((filter) => (
                   <label className="np-filter" key={filter.label}>
-                    <span>{filter.label}</span>
+                    <span>{t(filter.label)}</span>
                     <select
-                      aria-label={filter.label}
+                      aria-label={t(filter.label)}
                       value={filter.value}
                       onChange={(event) => {
                         filter.setter(event.target.value);
                         resetPage();
                       }}
                     >
-                      <option>All</option>
+                      <option value="All">{t("All")}</option>
                       {filter.options.map((option) => (
                         <option key={option}>{option}</option>
                       ))}
@@ -865,7 +874,7 @@ export function NetworkPath() {
                 ))}
                 <AddFacetMenu onPick={revealFacet}>
                   <button type="button" className="np-blue-link">
-                    <Plus size={13} /> Add Facet
+                    <Plus size={13} /> {t("Add Facet")}
                   </button>
                 </AddFacetMenu>
                 <button
@@ -881,13 +890,13 @@ export function NetworkPath() {
                     resetPage();
                   }}
                 >
-                  Reset
+                  {t("Reset")}
                 </button>
                 </div>
                 <div className="np-view-row">
                   <div className="np-view-group">
-                    <span className="np-view-label">View as</span>
-                    <div className="np-view-seg" role="group" aria-label="View as">
+                    <span className="np-view-label">{t("View as")}</span>
+                    <div className="np-view-seg" role="group" aria-label={t("View as")}>
                       {(["Individual Tests", "Grouped Tests"] as const).map(
                         (option) => (
                           <button
@@ -900,14 +909,14 @@ export function NetworkPath() {
                               resetPage();
                             }}
                           >
-                            {option}
+                            {t(option)}
                           </button>
                         ),
                       )}
                     </div>
                   </div>
                   <div className="np-view-group">
-                    <span className="np-view-label">Group by</span>
+                    <span className="np-view-label">{t("Group by")}</span>
                     <Select
                       value={groupBy}
                       disabled={view === "Individual Tests"}
@@ -918,11 +927,11 @@ export function NetworkPath() {
                     >
                       <SelectTrigger
                         className="np-view-trigger"
-                        aria-label="Group by"
+                        aria-label={t("Group by")}
                       >
                         <SelectValue>
                           {view === "Individual Tests"
-                            ? "Ungrouped tests"
+                            ? t("Ungrouped tests")
                             : groupBy === "destination"
                               ? "destination.hostname"
                               : "source.display_name × destination.hostname"}
@@ -945,14 +954,14 @@ export function NetworkPath() {
                   <div className="np-facet-search">
                     <Search size={12} />
                     <input
-                      placeholder="Search facets"
-                      aria-label="Search facets"
+                      placeholder={t("Search facets")}
+                      aria-label={t("Search facets")}
                       value={facetQuery}
                       onChange={(event) => setFacetQuery(event.target.value)}
                     />
                   </div>
                   <div className="np-facet-meta">
-                    Showing{" "}
+                    {isZh ? "显示" : "Showing"}{" "}
                     {
                       facetGroups
                         .flatMap((group) => group.fields)
@@ -962,10 +971,10 @@ export function NetworkPath() {
                             .includes(facetQuery.toLowerCase()),
                         ).length
                     }{" "}
-                    of 20{" "}
+                    {isZh ? "/ 共" : "of"} 20{" "}
                     <AddFacetMenu onPick={revealFacet}>
                       <button type="button">
-                        <Plus size={12} /> Add
+                        <Plus size={12} /> {t("Add")}
                       </button>
                     </AddFacetMenu>
                   </div>
@@ -986,7 +995,7 @@ export function NetworkPath() {
                         ) : (
                           <ChevronDown size={12} />
                         )}
-                        {group.name}
+                        {t(group.name)}
                       </button>
                       {!collapsed.includes(group.name) &&
                         group.fields
@@ -1011,7 +1020,7 @@ export function NetworkPath() {
                                 ) : (
                                   <ChevronRight size={12} />
                                 )}
-                                <span>{field}</span>
+                                <span>{t(field)}</span>
                               </button>
                               {openFacet === field && (
                                 <div className="np-facet-values">
@@ -1053,12 +1062,14 @@ export function NetworkPath() {
                                           );
                                         else
                                           setNotice(
-                                            `${field}: ${value} (sample metadata)`,
+                                            isZh
+                                              ? `${t(field)}：${t(value)}（示例元数据）`
+                                              : `${field}: ${value} (sample metadata)`,
                                           );
                                         resetPage();
                                       }}
                                     >
-                                      {value}
+                                      {t(value)}
                                       <span>
                                         {tests.filter((test) =>
                                           [
@@ -1090,7 +1101,7 @@ export function NetworkPath() {
                             resetPage();
                           }}
                         >
-                          {item} (
+                          {t(item)} (
                           {item === "All Tests"
                             ? tests.length
                             : tests.filter((test) => statusOf(test) === item)
@@ -1100,23 +1111,24 @@ export function NetworkPath() {
                       ))}
                     </div>
                     <span>
-                      Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–
+                      {isZh ? "显示" : "Showing"}{" "}
+                      {filtered.length ? (page - 1) * pageSize + 1 : 0}–
                       {Math.min(
                         page * pageSize,
                         view === "Grouped Tests"
                           ? groups.length
                           : filtered.length,
                       )}{" "}
-                      of{" "}
+                      {isZh ? "/ 共" : "of"}{" "}
                       {view === "Grouped Tests"
                         ? groups.length
                         : filtered.length}{" "}
-                      results
+                      {t("results")}
                     </span>
                     <label className="np-top-limit">
-                      Show top{" "}
+                      {t("Show top")}{" "}
                       <select
-                        aria-label="Show top results"
+                        aria-label={t("Show top results")}
                         value={limit}
                         onChange={(event) => {
                           setLimit(Number(event.target.value));
@@ -1129,7 +1141,7 @@ export function NetworkPath() {
                           </option>
                         ))}
                       </select>{" "}
-                      results
+                      {t("results")}
                     </label>
                   </div>
                   <div className="np-table-scroll">
@@ -1137,21 +1149,21 @@ export function NetworkPath() {
                       <div className="np-group-table">
                         <div className="np-group-caption">
                           <span />
-                          <span>SOURCE</span>
-                          <span>DESTINATION</span>
-                          <span>METRICS</span>
+                          <span>{t("SOURCE")}</span>
+                          <span>{t("DESTINATION")}</span>
+                          <span>{t("METRICS")}</span>
                         </div>
                         <div className="np-group-header">
                           <span />
-                          <span>DISPLAY NAME</span>
-                          <span>HOSTNAME</span>
-                          <span>AVG REACHABILITY</span>
+                          <span>{t("DISPLAY NAME")}</span>
+                          <span>{t("HOSTNAME")}</span>
+                          <span>{t("AVG REACHABILITY")}</span>
                           <button
-                            title={
+                            title={t(
                               sortDirection === "asc"
                                 ? "Sort RTT descending"
-                                : "Sort RTT ascending"
-                            }
+                                : "Sort RTT ascending",
+                            )}
                             onClick={() => {
                               setSortDirection(
                                 sortDirection === "asc" ? "desc" : "asc",
@@ -1159,7 +1171,7 @@ export function NetworkPath() {
                               resetPage();
                             }}
                           >
-                            <ArrowDownUp size={12} /> AVG RTT
+                            <ArrowDownUp size={12} /> {t("AVG RTT")}
                           </button>
                         </div>
                         {visibleGroups.map(([key, items]) => {
@@ -1213,7 +1225,9 @@ export function NetworkPath() {
                                 >
                                   {groupBy === "source"
                                     ? <SourceName name={test.source} />
-                                    : `${items.length} source${items.length > 1 ? "s" : ""}`}
+                                    : isZh
+                                      ? `${items.length} 个源`
+                                      : `${items.length} source${items.length > 1 ? "s" : ""}`}
                                 </button>
                                 <button
                                   className="np-link"
@@ -1244,7 +1258,7 @@ export function NetworkPath() {
                     {filtered.length === 0 && (
                       <div className="np-empty">
                         <Search size={24} />
-                        <strong>No tests match your filters</strong>
+                        <strong>{t("No tests match your filters")}</strong>
                         <button
                           className="np-blue-link"
                           onClick={() => {
@@ -1258,19 +1272,19 @@ export function NetworkPath() {
                             resetPage();
                           }}
                         >
-                          Clear filters
+                          {t("Clear filters")}
                         </button>
                       </div>
                     )}
                   </div>
                   <div className="np-pagination">
                     <span className="np-update">
-                      {paused ? "Paused" : `Updated: ${refreshed}`}
+                      {t(paused ? "Paused" : `Updated: ${refreshed}`)}
                     </span>
                     <label>
-                      Results per page:{" "}
+                      {t("Results per page:")}{" "}
                       <select
-                        aria-label="Results per page"
+                        aria-label={t("Results per page")}
                         value={pageSize}
                         onChange={(event) => {
                           setPageSize(Number(event.target.value));
@@ -1400,7 +1414,7 @@ export function NetworkPath() {
         }}
         onApply={(config, name) => {
           applyConfig(config);
-          setNotice(`已应用视图：${name}`);
+          setNotice(`View applied: ${name}`);
           setViewsOpen(false);
         }}
       />
@@ -1412,16 +1426,16 @@ export function NetworkPath() {
             aria-modal="true"
             aria-label={
               drawer === "new"
-                ? "New Network Path Test"
-                : "Network Path Details"
+                ? t("New Network Path Test")
+                : t("Network Path Details")
             }
             onClick={(event) => event.stopPropagation()}
           >
             <header>
               <div>
-                <small>NETWORK PATH</small>
+                <small>{t("NETWORK PATH")}</small>
                 <h2>
-                  {drawer === "new" ? "New Test" : detail.destination}
+                  {drawer === "new" ? t("New Test") : detail.destination}
                 </h2>
               </div>
               <IconButton label="Close dialog" onClick={() => setDrawer(null)}>
@@ -1438,7 +1452,9 @@ export function NetworkPath() {
                     !newSource.trim()
                   ) {
                     setFormError(
-                      "Enter a valid hostname or IP address without a URL scheme.",
+                      t(
+                        "Enter a valid hostname or IP address without a URL scheme.",
+                      ),
                     );
                     return;
                   }
@@ -1448,7 +1464,7 @@ export function NetworkPath() {
                       Number(newPort) < 1 ||
                       Number(newPort) > 65535)
                   ) {
-                    setFormError("Port must be between 1 and 65535.");
+                    setFormError(t("Port must be between 1 and 65535."));
                     return;
                   }
                   const created = {
@@ -1468,12 +1484,12 @@ export function NetworkPath() {
                   setDrawer(null);
                   setNewDestination("");
                   setNotice(
-                    "Test created in demo data. No network probe has been started.",
+                    "Test created in demo data. No network probe has been started.", // 渲染时翻译
                   );
                 }}
               >
                 <label>
-                  Source
+                  {t("Source")}
                   <input
                     required
                     value={newSource}
@@ -1481,20 +1497,20 @@ export function NetworkPath() {
                   />
                 </label>
                 <label>
-                  Destination
+                  {t("Destination")}
                   <input
                     autoFocus
                     required
-                    placeholder="Hostname or IP address"
+                    placeholder={t("Hostname or IP address")}
                     value={newDestination}
                     onChange={(event) => setNewDestination(event.target.value)}
                   />
                 </label>
                 <div className="np-form-grid">
                   <label>
-                    Protocol
+                    {t("Protocol")}
                     <select
-                      aria-label="Protocol"
+                      aria-label={t("Protocol")}
                       value={newProtocol}
                       onChange={(event) => setNewProtocol(event.target.value)}
                     >
@@ -1505,7 +1521,7 @@ export function NetworkPath() {
                   </label>
                   {newProtocol !== "ICMP" && (
                     <label>
-                      Port
+                      {t("Port")}
                       <input
                         type="number"
                         min="1"
@@ -1518,19 +1534,21 @@ export function NetworkPath() {
                   )}
                 </div>
                 <label>
-                  Test interval
+                  {t("Test interval")}
                   <select
-                    aria-label="Test interval"
+                    aria-label={t("Test interval")}
                     value={newInterval}
                     onChange={(event) => setNewInterval(event.target.value)}
                   >
-                    <option>1 minute</option>
-                    <option>5 minutes</option>
-                    <option>15 minutes</option>
+                    {["1 minute", "5 minutes", "15 minutes"].map((item) => (
+                      <option key={item} value={item}>
+                        {t(item)}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>
-                  Tags
+                  {t("Tags")}
                   <input
                     defaultValue="env:production, site:sh-dc1"
                     readOnly
@@ -1547,10 +1565,10 @@ export function NetworkPath() {
                     className="np-outline"
                     onClick={() => setDrawer(null)}
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button className="np-primary" type="submit">
-                    <Plus size={14} /> Create Test
+                    <Plus size={14} /> {t("Create Test")}
                   </button>
                 </div>
               </form>

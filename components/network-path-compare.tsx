@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { PathSnapshot } from "@/lib/network-path-model";
+import { useNpI18n } from "@/lib/network-path-i18n";
 import type { TimelineSlot } from "@/lib/network-path-timeline";
 
 type Props = {
@@ -34,7 +35,7 @@ function formatDelta(a: number, b: number, unit: string) {
   return `${sign}${Math.round(delta * 10) / 10}${unit}`;
 }
 
-function diffSnapshots(a: PathSnapshot, b: PathSnapshot): HopChange[] {
+function diffSnapshots(a: PathSnapshot, b: PathSnapshot, isZh: boolean): HopChange[] {
   const hopsA = new Map(a.hops.map((hop) => [hop.id, hop]));
   const hopsB = new Map(b.hops.map((hop) => [hop.id, hop]));
   const changes: HopChange[] = [];
@@ -45,7 +46,7 @@ function diffSnapshots(a: PathSnapshot, b: PathSnapshot): HopChange[] {
         id,
         label: hop.label,
         kind: "added",
-        detail: `New hop in path${hop.asn ? ` (${hop.asn})` : ""}`,
+        detail: `${isZh ? "路径中的新增跳点" : "New hop in path"}${hop.asn ? ` (${hop.asn})` : ""}`,
       });
     }
   }
@@ -55,7 +56,7 @@ function diffSnapshots(a: PathSnapshot, b: PathSnapshot): HopChange[] {
         id,
         label: hop.label,
         kind: "removed",
-        detail: "No longer in path",
+        detail: isZh ? "已不在路径中" : "No longer in path",
       });
     }
   }
@@ -89,6 +90,7 @@ export function PathCompare({
   initialB,
   onClose,
 }: Props) {
+  const { t, isZh } = useNpI18n();
   const [indexA, setIndexA] = useState(initialA);
   const [indexB, setIndexB] = useState(initialB);
   const options = useMemo(
@@ -98,8 +100,8 @@ export function PathCompare({
   const snapshotA = history[indexA];
   const snapshotB = history[indexB];
   const changes = useMemo(
-    () => (snapshotA && snapshotB ? diffSnapshots(snapshotA, snapshotB) : []),
-    [snapshotA, snapshotB],
+    () => (snapshotA && snapshotB ? diffSnapshots(snapshotA, snapshotB, isZh) : []),
+    [snapshotA, snapshotB, isZh],
   );
 
   const select = (label: string, value: number, onChange: (n: number) => void) => (
@@ -119,14 +121,14 @@ export function PathCompare({
   );
 
   return (
-    <section className="npd-compare-panel" aria-label="Compare path snapshots">
+    <section className="npd-compare-panel" aria-label={t("Compare path snapshots")}>
       <header className="npd-compare-head">
-        <h2>Compare path</h2>
-        {select("Baseline", indexA, setIndexA)}
-        {select("Compare to", indexB, setIndexB)}
+        <h2>{t("Compare path")}</h2>
+        {select(t("Baseline"), indexA, setIndexA)}
+        {select(t("Compare to"), indexB, setIndexB)}
         <button
           className="npd-compare-close"
-          aria-label="Close compare"
+          aria-label={t("Close compare")}
           onClick={onClose}
         >
           <X size={14} />
@@ -136,40 +138,39 @@ export function PathCompare({
         <div className="npd-compare-body">
           <dl className="npd-compare-metrics">
             <div>
-              <dt>End-to-end latency</dt>
+              <dt>{t("End-to-end latency")}</dt>
               <dd>
                 {formatMs(snapshotA.rtt)} {"->"} {formatMs(snapshotB.rtt)}
-                <em>{formatDelta(snapshotA.rtt ?? 0, snapshotB.rtt ?? 0, " ms")}</em>
+                <em>{t(formatDelta(snapshotA.rtt ?? 0, snapshotB.rtt ?? 0, " ms"))}</em>
               </dd>
             </div>
             <div>
-              <dt>Packet loss</dt>
+              <dt>{t("Packet loss")}</dt>
               <dd>
                 {snapshotA.loss}% {"->"} {snapshotB.loss}%
-                <em>{formatDelta(snapshotA.loss, snapshotB.loss, "%")}</em>
+                <em>{t(formatDelta(snapshotA.loss, snapshotB.loss, "%"))}</em>
               </dd>
             </div>
             <div>
-              <dt>Hops</dt>
+              <dt>{t("Hops")}</dt>
               <dd>
                 {snapshotA.hops.length} {"->"} {snapshotB.hops.length}
                 <em>
-                  {formatDelta(snapshotA.hops.length, snapshotB.hops.length, "")}
+                  {t(formatDelta(snapshotA.hops.length, snapshotB.hops.length, ""))}
                 </em>
               </dd>
             </div>
           </dl>
           {changes.length === 0 ? (
             <p className="npd-compare-empty">
-              The two snapshots follow the same path with no significant
-              latency change.
+              {t("The two snapshots follow the same path with no significant latency change.")}
             </p>
           ) : (
             <ul className="npd-compare-list">
               {changes.map((change) => (
                 <li key={`${change.kind}-${change.id}`}>
                   <span className={`npd-compare-tag ${change.kind}`}>
-                    {KIND_LABEL[change.kind]}
+                    {t(KIND_LABEL[change.kind])}
                   </span>
                   <strong>{change.label}</strong>
                   <span>{change.detail}</span>

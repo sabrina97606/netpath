@@ -7,6 +7,7 @@ import { ChartContainer } from "@/components/ui/chart";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CiLink } from "@/components/ci-link";
 import { cmdbByName, seeded } from "@/lib/cmdb";
+import { useNpI18n } from "@/lib/network-path-i18n";
 
 export type DashboardTest = {
   id: string;
@@ -52,12 +53,13 @@ function trend(tests: DashboardTest[], hours: number, end: number) {
 }
 
 function TrendChart({ data, metric, color, unit }: { data: ReturnType<typeof trend>; metric: Metric; color: string; unit: string }) {
-  const label = metric === "reach" ? "Avg reachability" : metric === "rtt" ? "Avg RTT" : "Avg packet loss";
+  const { t } = useNpI18n();
+  const label = t(metric === "reach" ? "Avg reachability" : metric === "rtt" ? "Avg RTT" : "Avg packet loss");
   const reachValues = data.flatMap((point) => (point.reach === null ? [] : [point.reach]));
   const reachFloor = Math.max(0, Math.floor(Math.min(...reachValues, 100) / 10) * 10);
   const reachTicks = Array.from({ length: (100 - reachFloor) / 10 + 1 }, (_, index) => reachFloor + index * 10);
   return (
-    <ChartContainer className="np-dash-chart" aria-label={`${label} trend`} config={{ [metric]: { label, color } }}>
+    <ChartContainer className="np-dash-chart" aria-label={t(`${label} trend`)} config={{ [metric]: { label, color } }}>
       <AreaChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke="#e8edf3" />
         <XAxis dataKey="time" minTickGap={35} tick={{ fontSize: 12, fill: "#909399" }} axisLine={{ stroke: "#e8edf3" }} tickLine={false} />
@@ -93,6 +95,7 @@ export function NetworkPathDashboard({
   renderDestination: (name: string) => ReactNode;
   onOpen: (id: string) => void;
 }) {
+  const { t } = useNpI18n();
   const [hours, setHours] = useState(6);
   const [refresh, setRefresh] = useState(0);
   const [status, setStatus] = useState<Status>("All tests");
@@ -115,27 +118,27 @@ export function NetworkPathDashboard({
   ];
 
   return (
-    <section className="np-dash" aria-label="Network Path dashboard">
+    <section className="np-dash" aria-label={t("Network Path dashboard")}>
       <div className="np-dash-toolbar">
-        <h2>Network Path Overview</h2>
+        <h2>{t("Network Path Overview")}</h2>
         <div className="np-dash-actions">
           <Clock3 size={13} />
-          <select aria-label="Time range" value={hours} onChange={(event) => setHours(Number(event.target.value))}>
-            <option value={1}>Last 1 hour</option>
-            <option value={6}>Last 6 hours</option>
-            <option value={24}>Last 24 hours</option>
+          <select aria-label={t("Time range")} value={hours} onChange={(event) => setHours(Number(event.target.value))}>
+            <option value={1}>{t("Last 1 hour")}</option>
+            <option value={6}>{t("Last 6 hours")}</option>
+            <option value={24}>{t("Last 24 hours")}</option>
           </select>
           <span>
             {new Date(end - hours * 3600000).toISOString().slice(0, 16).replace("T", " ")} – {new Date(end).toISOString().slice(11, 16)} UTC
           </span>
-          <button type="button" title="Refresh dashboard" aria-label="Refresh dashboard" onClick={() => setRefresh((previous) => previous + 1)}>
+          <button type="button" title={t("Refresh dashboard")} aria-label={t("Refresh dashboard")} onClick={() => setRefresh((previous) => previous + 1)}>
             <RefreshCw size={14} />
           </button>
         </div>
       </div>
 
-      <Section title="Global overview" note={`Latest status · ${new Date(end).toISOString().slice(11, 19)} UTC`}>
-        <div className="np-dash-summary" aria-label="Test summary">
+      <Section title={t("Global overview")} note={t(`Latest status · ${new Date(end).toISOString().slice(11, 19)} UTC`)}>
+        <div className="np-dash-summary" aria-label={t("Test summary")}>
           {cards.map((card) => (
             <button
               type="button"
@@ -145,23 +148,23 @@ export function NetworkPathDashboard({
               aria-pressed={card.filter ? status === card.filter : undefined}
               onClick={() => card.filter && setStatus(status === card.filter ? "All tests" : card.filter)}
             >
-              <span>{card.name}</span>
+              <span>{t(card.name)}</span>
               <strong>{card.value}</strong>
             </button>
           ))}
         </div>
       </Section>
 
-      <Section title="Quality monitoring" note={`Mean across ${reachable.length} reachable tests · UTC`}>
+      <Section title={t("Quality monitoring")} note={t(`Mean across ${reachable.length} reachable tests · UTC`)}>
         <div className="np-dash-trends">
           {charts.map((item) => (
             <section className="np-dash-panel" key={item.metric}>
               <div className="np-dash-panel-title">
-                <h3>{item.title}</h3>
+                <h3>{t(item.title)}</h3>
                 <strong>{format(data[data.length - 1][item.metric], ` ${item.unit}`.replace(" %", "%"))}</strong>
               </div>
               {data.every((point) => point[item.metric] === null) ? (
-                <div className="np-dash-empty">No valid results in this scope</div>
+                <div className="np-dash-empty">{t("No valid results in this scope")}</div>
               ) : (
                 <TrendChart data={data} metric={item.metric} color={item.color} unit={item.unit} />
               )}
@@ -170,25 +173,25 @@ export function NetworkPathDashboard({
         </div>
       </Section>
 
-      <Section title="Destination details">
-        <section className="np-dash-panel" aria-label="Destination performance">
+      <Section title={t("Destination details")}>
+        <section className="np-dash-panel" aria-label={t("Destination performance")}>
           <div className="np-dash-panel-title">
             <h3>
-              Destination performance <span className="np-dash-count">{filtered.length}</span>
+              {t("Destination performance")} <span className="np-dash-count">{filtered.length}</span>
             </h3>
-            <span>Latest result · {status}</span>
+            <span>{t(`Latest result · ${status}`)}</span>
           </div>
           <div className="np-dash-table-wrap">
             <table className="np-dash-table">
               <thead>
                 <tr>
-                  <th>Source</th>
-                  <th>Destination</th>
-                  <th>Protocol</th>
-                  <th>Status</th>
-                  <th>Reachability</th>
-                  <th>Avg RTT (ms)</th>
-                  <th aria-label="Actions" />
+                  <th>{t("Source")}</th>
+                  <th>{t("Destination")}</th>
+                  <th>{t("Protocol")}</th>
+                  <th>{t("Status")}</th>
+                  <th>{t("Reachability")}</th>
+                  <th>{t("Avg RTT (ms)")}</th>
+                  <th aria-label={t("Actions")} />
                 </tr>
               </thead>
               <tbody>
@@ -214,7 +217,7 @@ export function NetworkPathDashboard({
                       <td>
                         <span className="np-dash-badge" style={{ color: statusColors[state] }}>
                           <span style={{ background: statusColors[state] }} />
-                          {state}
+                          {t(state)}
                         </span>
                       </td>
                       <td>
@@ -222,13 +225,13 @@ export function NetworkPathDashboard({
                           <div className="np-reach-bar">
                             <span style={{ width: `${test.noData ? 0 : test.reach}%` }} />
                           </div>
-                          <strong>{test.noData ? "No data" : `${test.reach}%`}</strong>
+                          <strong>{test.noData ? t("No data") : `${test.reach}%`}</strong>
                         </div>
                       </td>
-                      <td>{test.noData ? "No data" : test.reach > 0 ? test.rtt : "N/A"}</td>
+                      <td>{test.noData ? t("No data") : test.reach > 0 ? test.rtt : "N/A"}</td>
                       <td>
                         <button type="button" className="np-dash-link" onClick={() => onOpen(test.id)}>
-                          View Path <ArrowRight size={12} />
+                          {t("View Path")} <ArrowRight size={12} />
                         </button>
                       </td>
                     </tr>
@@ -239,7 +242,7 @@ export function NetworkPathDashboard({
           </div>
           {!filtered.length && (
             <div className="np-dash-empty">
-              <Check size={17} /> No tests match the selected status
+              <Check size={17} /> {t("No tests match the selected status")}
             </div>
           )}
         </section>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Pencil, Search, Star, Trash2 } from "lucide-react";
+import { useNpI18n } from "@/lib/network-path-i18n";
 
 export type ViewConfig = {
   query: string;
@@ -39,7 +40,7 @@ type SavedView = {
 
 const DEFAULT_ID = "default";
 
-const describe = (config: ViewConfig) => {
+const describe = (config: ViewConfig, noFilters: string) => {
   const parts: string[] = [];
   if (config.query) parts.push(config.query);
   if (config.source !== "All") parts.push(`source:${config.source}`);
@@ -49,48 +50,48 @@ const describe = (config: ViewConfig) => {
   if (config.testId !== "All") parts.push(`test_id:${config.testId}`);
   if (config.status !== "All Tests") parts.push(`status:${config.status}`);
   if (config.groupBy !== "source") parts.push(`group_by:${config.groupBy}`);
-  return parts.length ? parts.join(" ") : "未设置筛选条件";
+  return parts.length ? parts.join(" ") : noFilters;
 };
 
 const seedViews: SavedView[] = [
   {
     id: "seed-1",
-    name: "上海核心 TCP 探测",
+    name: "Shanghai core TCP probes",
     config: { ...defaultViewConfig, source: "SH-DC1-CORE-SW01", protocol: "TCP" },
     starred: true,
     mine: true,
   },
   {
     id: "seed-2",
-    name: "不可达测试",
+    name: "Unreachable tests",
     config: { ...defaultViewConfig, status: "Unreachable" },
     starred: true,
     mine: true,
   },
   {
     id: "seed-3",
-    name: "北京出口防火墙",
+    name: "Beijing edge firewall",
     config: { ...defaultViewConfig, source: "BJ-HQ-EDGE-FW01" },
     starred: true,
     mine: true,
   },
   {
     id: "seed-4",
-    name: "全部 UDP 探测",
+    name: "All UDP probes",
     config: { ...defaultViewConfig, protocol: "UDP" },
     starred: false,
     mine: false,
   },
   {
     id: "seed-5",
-    name: "按目的地分组",
+    name: "Group by destination",
     config: { ...defaultViewConfig, groupBy: "destination" },
     starred: false,
     mine: false,
   },
   {
     id: "seed-6",
-    name: "HTTPS 端口 443",
+    name: "HTTPS port 443",
     config: { ...defaultViewConfig, port: "443", protocol: "TCP" },
     starred: false,
     mine: false,
@@ -119,6 +120,9 @@ export function NetworkPathViewsDrawer({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const { t } = useNpI18n();
+  const noFilters = t("No filters set");
+  const nameOf = (name: string) => t(name);
 
   useEffect(() => {
     if (!open) return;
@@ -140,10 +144,13 @@ export function NetworkPathViewsDrawer({
   const visible = views.filter(
     (item) =>
       (!mineOnly || item.mine) &&
-      (!needle || item.name.toLowerCase().includes(needle) || describe(item.config).toLowerCase().includes(needle)),
+      (!needle ||
+        nameOf(item.name).toLowerCase().includes(needle) ||
+        describe(item.config, noFilters).toLowerCase().includes(needle)),
   );
   const showDefault =
-    !mineOnly && (!needle || "我的视图".includes(needle) || "这是您的默认视图".includes(needle));
+    !mineOnly && (!needle || t("My view").toLowerCase().includes(needle) ||
+        t("This is your default view").toLowerCase().includes(needle));
 
   const saveNew = () => {
     const name = newName.trim();
@@ -174,7 +181,7 @@ export function NetworkPathViewsDrawer({
         className="np-views-drawer"
         role="dialog"
         aria-modal="true"
-        aria-label="视图列表"
+        aria-label={t("View list")}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="np-views-head">
@@ -188,14 +195,14 @@ export function NetworkPathViewsDrawer({
             >
               <input
                 autoFocus
-                aria-label="新视图名称"
-                placeholder="输入视图名称"
+                aria-label={t("New view name")}
+                placeholder={t("Enter a view name")}
                 value={newName}
                 maxLength={40}
                 onChange={(event) => setNewName(event.target.value)}
               />
               <button type="submit" className="np-views-confirm" disabled={!newName.trim()}>
-                保存
+                {t("Save")}
               </button>
               <button
                 type="button"
@@ -205,20 +212,20 @@ export function NetworkPathViewsDrawer({
                   setNewName("");
                 }}
               >
-                取消
+                {t("Cancel")}
               </button>
             </form>
           ) : (
             <button type="button" className="np-views-save" onClick={() => setNaming(true)}>
-              保存为新视图
+              {t("Save as new view")}
             </button>
           )}
           <label className="np-views-search">
             <Search size={13} aria-hidden="true" />
             <input
               ref={searchRef}
-              aria-label="搜索视图名称"
-              placeholder="搜索视图名称"
+              aria-label={t("Search view name")}
+              placeholder={t("Search view name")}
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
             />
@@ -228,13 +235,13 @@ export function NetworkPathViewsDrawer({
               type="button"
               role="switch"
               aria-checked={mineOnly}
-              aria-label="只显示我保存的视图"
+              aria-label={t("Show only my saved views")}
               className={mineOnly ? "on" : ""}
               onClick={() => setMineOnly(!mineOnly)}
             >
               <span />
             </button>
-            <span>只显示我保存的视图</span>
+            <span>{t("Show only my saved views")}</span>
           </div>
         </div>
         <ul className="np-views-list">
@@ -249,8 +256,8 @@ export function NetworkPathViewsDrawer({
                   onDefault();
                 }}
               >
-                <strong>我的视图</strong>
-                <small>这是您的默认视图</small>
+                <strong>{t("My view")}</strong>
+                <small>{t("This is your default view")}</small>
               </button>
             </li>
           )}
@@ -259,7 +266,7 @@ export function NetworkPathViewsDrawer({
               <button
                 type="button"
                 className={`np-views-star-btn${item.starred ? " on" : ""}`}
-                aria-label={item.starred ? `取消收藏 ${item.name}` : `收藏 ${item.name}`}
+                aria-label={item.starred ? `${t("Unstar")} ${nameOf(item.name)}` : `${t("Star")} ${nameOf(item.name)}`}
                 aria-pressed={item.starred}
                 onClick={() => toggleStar(item.id)}
               >
@@ -270,7 +277,7 @@ export function NetworkPathViewsDrawer({
                   <input
                     autoFocus
                     className="np-views-rename"
-                    aria-label="视图名称"
+                    aria-label={t("View name")}
                     value={editingName}
                     maxLength={40}
                     onChange={(event) => setEditingName(event.target.value)}
@@ -284,7 +291,7 @@ export function NetworkPathViewsDrawer({
                       }
                     }}
                   />
-                  <small>{describe(item.config)}</small>
+                  <small>{describe(item.config, noFilters)}</small>
                 </div>
               ) : (
                 <button
@@ -295,15 +302,15 @@ export function NetworkPathViewsDrawer({
                     onApply(item.config, item.name);
                   }}
                 >
-                  <strong>{item.name}</strong>
-                  <small>{describe(item.config)}</small>
+                  <strong>{nameOf(item.name)}</strong>
+                  <small>{describe(item.config, noFilters)}</small>
                 </button>
               )}
               {item.mine && editingId !== item.id && (
                 <span className="np-views-actions">
                   <button
                     type="button"
-                    aria-label={`重命名 ${item.name}`}
+                    aria-label={`${t("Rename")} ${nameOf(item.name)}`}
                     onClick={() => {
                       setEditingId(item.id);
                       setEditingName(item.name);
@@ -311,14 +318,14 @@ export function NetworkPathViewsDrawer({
                   >
                     <Pencil size={12} />
                   </button>
-                  <button type="button" aria-label={`删除 ${item.name}`} onClick={() => remove(item.id)}>
+                  <button type="button" aria-label={`${t("Delete")} ${nameOf(item.name)}`} onClick={() => remove(item.id)}>
                     <Trash2 size={12} />
                   </button>
                 </span>
               )}
             </li>
           ))}
-          {!showDefault && visible.length === 0 && <li className="np-views-empty">没有匹配的视图</li>}
+          {!showDefault && visible.length === 0 && <li className="np-views-empty">{t("No matching views")}</li>}
         </ul>
       </aside>
     </div>
