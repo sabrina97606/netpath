@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkPathAnalysis } from "./network-path-analysis";
 import { PathTimeline } from "./network-path-timeline";
-import { PathCompare } from "./network-path-compare";
 import {
   buildTimelineSlots,
   slotCenter,
@@ -36,7 +35,6 @@ import {
   Search,
   Server,
   Settings2,
-  Share2,
   Workflow,
   X,
 } from "lucide-react";
@@ -419,7 +417,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [hoveredGroup, setHoveredGroup] = useState("ASN");
   const [brush, setBrush] = useState<TimelineBrush | null>(null);
-  const [compareOpen, setCompareOpen] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [selectedHop, setSelectedHop] = useState<string | null>(null);
   const [inspectedHop, setInspectedHop] = useState<string | null>(null);
@@ -428,8 +425,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [latencyThreshold, setLatencyThreshold] = useState(7);
   const [nameCopied, setNameCopied] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState("");
   const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [hoveredHop, setHoveredHop] = useState<string | null>(null);
@@ -740,43 +735,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           <Globe size={12} />
           {test.destination}
         </span>
-        <div className="npd-actions">
-          <button className="npd-share" onClick={() => setActiveTab("Analysis")}>
-            <Activity size={12} />
-            Analyze
-          </button>
-          <button
-            className="npd-compare"
-            aria-expanded={compareOpen}
-            onClick={() => setCompareOpen((open) => !open)}
-          >
-            <Layers size={12} />
-            Compare
-          </button>
-          <button
-            className="npd-share"
-            onClick={async () => {
-              try {
-                const url = new URL(location.href);
-                url.searchParams.set("test", test.id);
-                await navigator.clipboard.writeText(url.toString());
-                setCopied(true);
-                setCopyError("");
-              } catch {
-                setCopyError("Copy unavailable. Test ID: " + test.id);
-              }
-            }}
-          >
-            {copied ? <Check size={12} /> : <Share2 size={12} />}
-            {copied ? "Link copied" : "Share"}
-          </button>
-        </div>
       </div>
-      {copyError && (
-        <div className="npd-copy-error" role="status">
-          {copyError}
-        </div>
-      )}
       <div className="npd-tabs" role="tablist" aria-label="Path detail views">
         {[
           {
@@ -949,16 +908,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
             Issues ({snapshot.issues.length})
           </button>
         </div>
-      )}
-      {compareOpen && (
-        <PathCompare
-          history={history}
-          slots={slots}
-          slotLabel={(index) => formatStamp(slotTime(index))}
-          initialA={selectedTime ?? 0}
-          initialB={143}
-          onClose={() => setCompareOpen(false)}
-        />
       )}
       <div className="npd-body">
         {activeTab === "Path View" ? (
@@ -1179,9 +1128,8 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                     try {
                       await navigator.clipboard.writeText(hop.data.label);
                       setNameCopied(true);
-                      setCopyError("");
                     } catch {
-                      setCopyError("Copy unavailable. Name: " + hop.data.label);
+                      setNameCopied(false);
                     }
                   }}
                 >
