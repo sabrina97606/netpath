@@ -38,6 +38,7 @@ export type PathIssue = {
   nodeIds: string[];
   edgeIds: string[];
   severity: "warning" | "critical";
+  badge: string;
 };
 export type PathGroup = { id: string; label: string; count: number };
 type Test = { source: string; destination: string; reach: number; rtt: number };
@@ -72,6 +73,9 @@ export function buildPathSnapshot(
         ? Math.round(test.rtt * 0.85)
         : test.rtt;
   const factor = test.rtt > 0 ? test.rtt / 177 : 1;
+  const compact = groupBy === "ASN" && expanded.length === 0;
+  const gap = compact ? 90 : 130;
+  const branchGap = compact ? 170 : 300;
   const hops: PathHop[] = [];
   const links: PathLink[] = [];
   const issues: PathIssue[] = [];
@@ -98,6 +102,7 @@ export function buildPathSnapshot(
     latency: number | null,
     complete = true,
     packetLoss?: number,
+    count = 6840,
   ) => {
     const link = {
       id: `link-${from}-${to}`,
@@ -106,7 +111,7 @@ export function buildPathSnapshot(
       latency:
         latency === null ? null : Math.max(1, Math.round(latency * factor)),
       complete,
-      count: 6840,
+      count,
       packetLoss,
     };
     links.push(link);
@@ -127,7 +132,7 @@ export function buildPathSnapshot(
     id: "gateway",
     label: "10.3.28.1",
     kind: "hop",
-    x: 300,
+    x: compact ? 320 : 360,
     y: 160,
     latency: unreachable ? 11 : 8,
     asn: "Private network",
@@ -191,16 +196,17 @@ export function buildPathSnapshot(
       });
     });
     if (addresses.length === 4) {
-      addLink(members[0], members[1], 7, true, affected ? 21 : undefined);
+      addLink(members[0], members[1], 7, true, affected ? 21 : undefined, 5160);
       addLink(
         members[0],
         members[2],
         affected ? 55 : 5,
         true,
         affected ? 21 : undefined,
+        1680,
       );
-      addLink(members[1], members[3], 3);
-      addLink(members[2], members[3], 3);
+      addLink(members[1], members[3], 3, true, undefined, 5160);
+      addLink(members[2], members[3], 3, true, undefined, 1680);
     } else {
       members
         .slice(1)
@@ -229,7 +235,7 @@ export function buildPathSnapshot(
       "as4811",
       "AS4811 – China Telecom (Group)",
       "AS4811",
-      600,
+      compact ? 560 : 680,
       160,
       25,
       ["203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"],
@@ -239,7 +245,7 @@ export function buildPathSnapshot(
       "as4812",
       "AS4812 – China Telecom (Group)",
       "AS4812",
-      first.end + 300,
+      first.end + branchGap,
       210,
       53,
       phase === "degraded"
@@ -251,7 +257,7 @@ export function buildPathSnapshot(
       "as4134",
       "AS4134 – CHINANET Backbone",
       "AS4134",
-      second.end + 130,
+      second.end + gap,
       160,
       123,
       ["203.0.113.16", "203.0.113.17"],
@@ -261,7 +267,7 @@ export function buildPathSnapshot(
       "location",
       "Hong Kong, Hong Kong",
       "AS4134",
-      third.end + 130,
+      third.end + gap,
       160,
       134,
       ["203.0.113.20", "203.0.113.21"],
@@ -290,7 +296,7 @@ export function buildPathSnapshot(
     addLink(second.exit, third.entry, 26);
     addLink(third.exit, location.entry, 11);
     if (phase === "recent") addLink(third.exit, "destination", 19);
-    destinationX = location.end + 130;
+    destinationX = location.end + gap;
     addLink(
       location.exit,
       hideUnknown ? "destination" : "unknown",
@@ -310,6 +316,7 @@ export function buildPathSnapshot(
         nodeIds: [target],
         edgeIds: affectedEdges,
         severity: "warning",
+        badge: "High hop response loss",
       });
     }
   } else {
@@ -368,7 +375,10 @@ export function buildPathSnapshot(
         .filter((link) => link.to === "destination")
         .map((link) => link.id),
       severity: unreachable ? "critical" : "warning",
+      badge: unreachable ? "Destination unreachable" : "End-to-end packet loss",
     });
   }
   return { hops, links, issues, groups, reach, loss, rtt, phase };
 }
+
+export type PathSnapshot = ReturnType<typeof buildPathSnapshot>;

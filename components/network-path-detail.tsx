@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkPathAnalysis } from "./network-path-analysis";
+import { PathTimeline } from "./network-path-timeline";
+import { PathCompare } from "./network-path-compare";
+import {
+  buildTimelineSlots,
+  slotCenter,
+  type TimelineBrush,
+} from "@/lib/network-path-timeline";
 import { CiLink } from "@/components/ci-link";
 import { cmdbByIp, cmdbByName } from "@/lib/cmdb";
 import {
@@ -86,6 +93,7 @@ type HopData = {
   traversed: number;
   stats?: PathStats;
   issueCount?: number;
+  badge?: string;
   highlighted?: boolean;
   onSelect: () => void;
   onExpand?: () => void;
@@ -214,7 +222,7 @@ function HopCard({ data }: NodeProps<HopNode>) {
     );
   return (
     <div
-      className={`npd-hop-card npd-kind-${data.kind} ${unreachable ? "unreachable" : loss > 0 ? "unstable" : ""} ${data.selected ? "selected" : ""} ${data.dimmed ? "dimmed" : ""} ${data.highlighted ? "issue-highlighted" : ""}`}
+      className={`npd-hop-card npd-kind-${data.kind} ${unreachable ? "unreachable" : loss > 0 ? "unstable" : ""} ${data.selected ? "selected" : ""} ${data.dimmed ? "dimmed" : ""} ${data.highlighted ? "issue-highlighted" : ""} ${data.children ? "stacked" : ""}`}
     >
       <Handle type="target" position={Position.Left} />
       <Handle id="in-top" type="target" position={Position.Top} />
@@ -224,7 +232,7 @@ function HopCard({ data }: NodeProps<HopNode>) {
           {unreachable
             ? "Destination is unreachable"
             : data.kind !== "destination"
-              ? "Hop response warning"
+              ? (data.badge ?? "Hop response warning")
               : loss > 0
                 ? "Destination is unstable"
                 : "Destination is reachable"}
@@ -407,9 +415,11 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const [activeTab, setActiveTab] = useState("Path View");
   const [query, setQuery] = useState("");
   const [hideUnknown, setHideUnknown] = useState(true);
-  const [groupBy, setGroupBy] = useState("IP Address");
+  const [groupBy, setGroupBy] = useState("ASN");
   const [showGroupMenu, setShowGroupMenu] = useState(false);
-  const [hoveredGroup, setHoveredGroup] = useState("IP Address");
+  const [hoveredGroup, setHoveredGroup] = useState("ASN");
+  const [brush, setBrush] = useState<TimelineBrush | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [selectedHop, setSelectedHop] = useState<string | null>(null);
   const [inspectedHop, setInspectedHop] = useState<string | null>(null);
@@ -509,9 +519,17 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       hour: "2-digit",
       minute: "2-digit",
     }).format(timestamp);
-  const timeLabels = Array.from({ length: 16 }, (_, index) =>
-    formatTime(startTime + (duration * index) / 15),
-  );
+  const formatStamp = (timestamp: number) =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Hong_Kong",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(timestamp);
+  const slots = useMemo(() => buildTimelineSlots(144), []);
+  const slotTime = (index: number) =>
+    startTime + slotCenter(slots[index]) * duration;
   const expandableIds = snapshot.groups.map((group) => group.id);
   const allExpanded =
     expandableIds.length > 0 &&
@@ -532,7 +550,35 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     setInspectedHop(null);
     refit();
   };
-  const selectSample = (sample: number | null) => {
+  const stepSample = (direction: -1 | 1) => {
+    let index = (selectedTime ?? 143) + (selectedTime === null ? -1 : 0);
+    do {
+      index += direction;
+    } while (index >= 0 && index <= 143 && slots[index].missing);
+    if (index >= 0 && index <= 143) selectSample(index);
+  };
+  const handleBrush = (next: TimelineBrush, commit: boolean) => {
+    setBrush(next);
+    if (!commit) return;
+    const inRange = history.filter(
+      (_, index) =>
+        !slots[index].missing &&
+        slotCenter(slots[index]) >= next.from &&
+        slotCenter(slots[index]) <= next.to,
+    );
+    if (!inRange.length) return;
+    const worstIndex = history.indexOf(
+      inRange.reduce((worst, item) =>
+        item.reach < worst.reach ||
+        (item.reach === worst.reach && (item.rtt ?? 0) > (worst.rtt ?? 0))
+          ? item
+          : worst,
+      ),
+    );
+    selectSample(worstIndex, true);
+  };
+  const selectSample = (sample: number | null, keepBrush = false) => {
+    if (!keepBrush) setBrush(null);
     setSelectedTime(sample);
     setSelectedHop(null);
     setHoveredHop(null);
@@ -564,6 +610,8 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       issueCount: snapshot.issues.filter((issue) =>
         issue.nodeIds.includes(hop.id),
       ).length,
+      badge: snapshot.issues.find((issue) => issue.nodeIds.includes(hop.id))
+        ?.badge,
       highlighted: highlightedNodes.has(hop.id),
       selected: selectedHop === hop.id || inspectedHop === hop.id,
       dimmed: Boolean(
@@ -624,7 +672,8 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
         packetLoss: link.packetLoss,
         highlighted: highlightedEdges.has(link.id),
         dimmed: Boolean(activeIssue && !highlightedEdges.has(link.id)),
-        width: 1 + (3 * (link.count - 1)) / 6839,
+        width:
+          1.5 + (4.5 * Math.log10(Math.max(1, link.count))) / Math.log10(6840),
       },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 10, height: 10 },
     };
@@ -656,18 +705,18 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const timeText =
     selectedTime === null
       ? `${formatTime(startTime)} – ${formatTime(endTime)} (UTC+08:00)`
-      : `${formatTime(startTime + (duration * selectedTime) / 143)} · Sample ${selectedTime + 1}`;
+      : `${formatTime(slotTime(selectedTime))} · Sample ${selectedTime + 1}`;
   const graphTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong",
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(
-    selectedTime === null
-      ? endTime
-      : startTime + (duration * selectedTime) / 143,
-  );
-  const history = Array.from({ length: 144 }, (_, index) =>
-    buildPathSnapshot(test, index, "ASN", [], true),
+  }).format(selectedTime === null ? endTime : slotTime(selectedTime));
+  const history = useMemo(
+    () =>
+      Array.from({ length: 144 }, (_, index) =>
+        buildPathSnapshot(test, index, "ASN", [], true),
+      ),
+    [test],
   );
   const renderObservations = (node: HopNode) => (
     <HopObservation
@@ -692,6 +741,18 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           {test.destination}
         </span>
         <div className="npd-actions">
+          <button className="npd-share" onClick={() => setActiveTab("Analysis")}>
+            <Activity size={12} />
+            Analyze
+          </button>
+          <button
+            className="npd-compare"
+            aria-expanded={compareOpen}
+            onClick={() => setCompareOpen((open) => !open)}
+          >
+            <Layers size={12} />
+            Compare
+          </button>
           <button
             className="npd-share"
             onClick={async () => {
@@ -889,9 +950,27 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           </button>
         </div>
       )}
+      {compareOpen && (
+        <PathCompare
+          history={history}
+          slots={slots}
+          slotLabel={(index) => formatStamp(slotTime(index))}
+          initialA={selectedTime ?? 0}
+          initialB={143}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
       <div className="npd-body">
         {activeTab === "Path View" ? (
-          <div className="npd-canvas" ref={canvasRef}>
+              <div className="npd-canvas" ref={canvasRef}>
+                {brush && (
+                  <div className="npd-range-banner" role="status">
+                    Filtered time range:{" "}
+                    {formatStamp(startTime + brush.from * duration)} -{" "}
+                    {formatStamp(startTime + brush.to * duration)} · showing the
+                    worst sample in range
+                  </div>
+                )}
             <ReactFlow<HopNode | GroupFrameNode>
               nodes={[...groupFrames, ...nodes]}
               edges={edges}
@@ -1243,11 +1322,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           <button
             title="Previous sample"
             aria-label="Previous sample"
-            onClick={() =>
-              selectSample(
-                selectedTime === null ? 142 : Math.max(0, selectedTime - 1),
-              )
-            }
+            onClick={() => stepSample(-1)}
             disabled={selectedTime === 0}
           >
             <ArrowLeft size={13} />
@@ -1256,9 +1331,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
             title="Next sample"
             aria-label="Next sample"
             disabled={selectedTime === null || selectedTime === 143}
-            onClick={() =>
-              selectSample(Math.min(143, (selectedTime ?? 142) + 1))
-            }
+            onClick={() => stepSample(1)}
           >
             <ArrowRight size={13} />
           </button>
@@ -1273,62 +1346,18 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       )}
       {activeTab === "Path View" && (
         <div className="npd-timeline">
-          <div className="npd-timeline-labels">
-            <span>Latency</span>
-            <span>Reachability</span>
-          </div>
-          <div className="npd-timeline-main">
-            <div className="npd-timeline-cells">
-              {history.map((historical, index) => (
-                <button
-                  aria-label={`Select time sample ${index + 1}`}
-                  aria-pressed={selectedTime === index}
-                  title={`${formatTime(startTime + (duration * index) / 143)} · RTT ${historical.rtt === null ? "N/A" : `${historical.rtt} ms`} · Reachability ${historical.reach}% · Issues ${historical.issues.length}`}
-                  key={index}
-                  className={selectedTime === index ? "selected" : ""}
-                  onClick={() =>
-                    selectSample(selectedTime === index ? null : index)
-                  }
-                >
-                  <i
-                    style={{
-                      background:
-                        historical.reach === 0
-                          ? "#f7b5b5"
-                          : historical.phase === "degraded"
-                            ? "#e6ecc4"
-                            : "#83d497",
-                    }}
-                  />
-                  <i
-                    style={{
-                      background:
-                        historical.reach === 0
-                          ? "#f3a8a8"
-                          : historical.loss > 1
-                            ? "#f2d58d"
-                            : "#a7dfb6",
-                    }}
-                  />
-                </button>
-              ))}
-            </div>
-            <div className="npd-time-labels">
-              {timeLabels.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
-            </div>
-            <input
-              className="npd-history-slider"
-              type="range"
-              aria-label="History sample"
-              min="0"
-              max="143"
-              value={selectedTime ?? 143}
-              onChange={(event) => selectSample(Number(event.target.value))}
-            />
-          </div>
-          {selectedTime !== null && (
+          <PathTimeline
+            history={history}
+            slots={slots}
+            start={startTime}
+            end={endTime}
+            selectedIndex={selectedTime}
+            brush={brush}
+            formatTime={formatStamp}
+            onSelect={(index) => selectSample(index)}
+            onBrush={handleBrush}
+          />
+          {(selectedTime !== null || brush) && (
             <button
               className="npd-clear-time"
               title="Clear time selection"
