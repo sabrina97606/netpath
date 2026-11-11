@@ -205,16 +205,32 @@ function HopCard({ data }: NodeProps<HopNode>) {
   const unreachable = data.kind === "destination" && loss === 100;
   if (data.kind === "unknown")
     return (
-      <div className="npd-unknown-node">
+      <div
+        className={`npd-unknown-node ${data.selected ? "selected" : ""} ${data.dimmed ? "dimmed" : ""}`}
+      >
         <Handle type="target" position={Position.Left} />
         <button
           className="nodrag nopan"
-          aria-label="Inspect Unknown"
+          aria-label={`Inspect Unknown, traversed ${data.traversed} times`}
           onClick={data.onSelect}
         >
           <span />
         </button>
         <small>Unknown</small>
+        <div className="npd-unknown-tip" role="tooltip">
+          <strong>Unknown nodes</strong>
+          <div>
+            <span>
+              <Activity size={12} />
+              Traversed count
+            </span>
+            <b>{data.traversed}</b>
+          </div>
+          <em>
+            These hops aren&apos;t responding to traceroute requests likely
+            because of a firewall or for security reasons.
+          </em>
+        </div>
         <Handle type="source" position={Position.Right} />
       </div>
     );
@@ -673,7 +689,12 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 10, height: 10 },
     };
   });
-  const hop = nodes.find((node) => node.id === (selectedHop || hoveredHop));
+  const activeHopId = selectedHop || hoveredHop;
+  const hop = nodes.find(
+    (node) =>
+      node.id === activeHopId &&
+      (node.data.kind !== "unknown" || selectedHop === activeHopId),
+  );
   const inspectedNode = nodes.find((node) => node.id === inspectedHop);
   const popoverLeft = hop
     ? Math.max(

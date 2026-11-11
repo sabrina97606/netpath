@@ -1396,6 +1396,67 @@
   border: 0;
   top: 21px;
 }
+.npd-unknown-node > button {
+  cursor: pointer;
+}
+.npd-unknown-node > button:hover,
+.npd-unknown-node > button:focus-visible,
+.npd-unknown-node.selected > button {
+  border-color: #2f7fd1;
+  box-shadow: 0 0 0 2px #2f7fd133;
+  outline: none;
+}
+.npd-unknown-node.dimmed {
+  opacity: 0.2;
+}
+.npd-unknown-tip {
+  position: absolute;
+  top: 30px;
+  left: 54px;
+  width: 250px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 13px;
+  border: 1px solid #d8e0ea;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 2px 8px #20344732;
+  color: #2b3a4a;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  pointer-events: none;
+  z-index: 20;
+}
+.npd-unknown-tip strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.npd-unknown-tip div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.npd-unknown-tip div span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  border-left: 1px solid #7c8c9c;
+}
+.npd-unknown-tip em {
+  color: #44556a;
+}
+.npd-unknown-node:hover .npd-unknown-tip,
+.npd-unknown-node > button:focus-visible ~ .npd-unknown-tip {
+  display: flex;
+}
+.react-flow__node:has(.npd-unknown-node:hover),
+.react-flow__node:has(.npd-unknown-node > button:focus-visible) {
+  z-index: 1000 !important;
+}
 .npd-node-popover {
   overflow: auto;
   position: absolute;

@@ -74,8 +74,9 @@ export function buildPathSnapshot(
         : test.rtt;
   const factor = test.rtt > 0 ? test.rtt / 177 : 1;
   const compact = groupBy === "ASN" && expanded.length === 0;
-  const gap = compact ? 90 : 130;
-  const branchGap = compact ? 170 : 300;
+  const unknownRoom = hideUnknown ? 0 : 100;
+  const gap = (compact ? 90 : 130) + unknownRoom;
+  const branchGap = (compact ? 170 : 300) + unknownRoom;
   const hops: PathHop[] = [];
   const links: PathLink[] = [];
   const issues: PathIssue[] = [];
@@ -235,7 +236,7 @@ export function buildPathSnapshot(
       "as4811",
       "AS4811 – China Telecom (Group)",
       "AS4811",
-      compact ? 560 : 680,
+      (compact ? 560 : 680) + unknownRoom,
       160,
       25,
       ["203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"],
@@ -303,6 +304,56 @@ export function buildPathSnapshot(
       8,
       hideUnknown,
     );
+    if (!hideUnknown) {
+      const xOf = (id: string) => hops.find((hop) => hop.id === id)?.x ?? 0;
+      const centerBetween = (left: number, right: number) =>
+        Math.round((left + right) / 2 - 32);
+      const addBypass = (
+        id: string,
+        from: string,
+        to: string,
+        x: number,
+        y: number,
+        traversed: number,
+      ) => {
+        addHop({
+          id,
+          label: "Unknown",
+          kind: "unknown",
+          x,
+          y,
+          latency: null,
+          asn: "Unknown",
+          traversed,
+        });
+        addLink(from, id, null, false, undefined, traversed);
+        addLink(id, to, null, false, undefined, traversed);
+      };
+      addBypass(
+        "unknown-1",
+        "gateway",
+        first.entry,
+        centerBetween(xOf("gateway") + 180, xOf(first.entry)),
+        310,
+        16,
+      );
+      addBypass(
+        "unknown-2",
+        first.exit,
+        second.entry,
+        centerBetween(first.end, xOf(second.entry)),
+        340,
+        24,
+      );
+      addBypass(
+        "unknown-3",
+        second.exit,
+        third.entry,
+        centerBetween(second.end, xOf(third.entry)),
+        310,
+        9,
+      );
+    }
     if (phase === "degraded") {
       const target = second.members[Math.min(1, second.members.length - 1)];
       const affectedEdges = links
