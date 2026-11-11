@@ -16,12 +16,15 @@ export type DashboardTest = {
   port: string;
   reach: number;
   rtt: number;
+  noData?: boolean;
 };
 
-type Status = "All tests" | "Reachable" | "Unreachable";
+type Status = "All tests" | "Reachable" | "Unreachable" | "No Data";
 type Metric = "reach" | "rtt" | "loss";
 
-const statusColors = { Reachable: "#25a77a", Unreachable: "#e05a60" };
+const statusColors = { Reachable: "#25a77a", Unreachable: "#e05a60", "No Data": "#909399" };
+const stateOf = (test: DashboardTest): Exclude<Status, "All tests"> =>
+  test.noData ? "No Data" : test.reach > 0 ? "Reachable" : "Unreachable";
 
 const average = (values: number[]) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null);
 const format = (value: number | null, unit = "") => (value === null ? "N/A" : `${Number(value.toFixed(1))}${unit}`);
@@ -94,14 +97,15 @@ export function NetworkPathDashboard({
   const [refresh, setRefresh] = useState(0);
   const [status, setStatus] = useState<Status>("All tests");
   const end = Date.UTC(2026, 9, 28, 6, refresh);
-  const reachable = tests.filter((test) => test.reach > 0);
-  const filtered = tests.filter((test) => status === "All tests" || (status === "Reachable") === test.reach > 0);
-  const data = trend(tests, hours, end);
+  const measured = tests.filter((test) => !test.noData);
+  const reachable = measured.filter((test) => test.reach > 0);
+  const filtered = tests.filter((test) => status === "All tests" || stateOf(test) === status);
+  const data = trend(measured, hours, end);
   const cards: { name: Status | "Avg reachability" | "Avg RTT"; value: string | number; filter?: Status }[] = [
     { name: "All tests", value: tests.length, filter: "All tests" },
     { name: "Reachable", value: reachable.length, filter: "Reachable" },
-    { name: "Unreachable", value: tests.length - reachable.length, filter: "Unreachable" },
-    { name: "Avg reachability", value: format(average(tests.map((test) => test.reach)), "%") },
+    { name: "Unreachable", value: measured.length - reachable.length, filter: "Unreachable" },
+    { name: "Avg reachability", value: format(average(measured.map((test) => test.reach)), "%") },
     { name: "Avg RTT", value: format(average(reachable.map((test) => test.rtt)), " ms") },
   ];
   const charts: { metric: Metric; title: string; color: string; unit: string }[] = [
@@ -189,7 +193,7 @@ export function NetworkPathDashboard({
               </thead>
               <tbody>
                 {filtered.map((test) => {
-                  const state = test.reach > 0 ? "Reachable" : "Unreachable";
+                  const state = stateOf(test);
                   const sourceCi = cmdbByName.get(test.source);
                   return (
                     <tr key={test.id}>
@@ -216,12 +220,12 @@ export function NetworkPathDashboard({
                       <td>
                         <div className="np-dash-reach">
                           <div className="np-reach-bar">
-                            <span style={{ width: `${test.reach}%` }} />
+                            <span style={{ width: `${test.noData ? 0 : test.reach}%` }} />
                           </div>
-                          <strong>{test.reach}%</strong>
+                          <strong>{test.noData ? "No data" : `${test.reach}%`}</strong>
                         </div>
                       </td>
-                      <td>{test.reach > 0 ? test.rtt : "N/A"}</td>
+                      <td>{test.noData ? "No data" : test.reach > 0 ? test.rtt : "N/A"}</td>
                       <td>
                         <button type="button" className="np-dash-link" onClick={() => onOpen(test.id)}>
                           View Path <ArrowRight size={12} />

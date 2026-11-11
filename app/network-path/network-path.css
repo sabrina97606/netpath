@@ -310,40 +310,56 @@
   background: #f8f9fb;
   border-bottom: 1px solid var(--np-border);
   display: flex;
-  align-items: center;
-  gap: 7px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   padding: 8px 14px 10px;
+}
+.np-filter-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
 }
 .np-search {
   display: flex;
   align-items: center;
   border: 1px solid #d9dfe8;
-  border-radius: 2px;
+  border-radius: 3px;
   background: #fff;
-  width: 155px;
-  padding-left: 7px;
-  height: 32px;
+  width: 190px;
+  height: 40px;
+  overflow: hidden;
 }
 .np-search input {
   border: 0;
   width: 100%;
-  padding: 4px;
+  min-width: 0;
+  padding: 4px 6px;
   background: transparent;
   font-size: 14px;
 }
 .np-search .np-icon {
-  border-left: 1px solid #d9dfe8;
+  height: 100%;
+  border-right: 1px solid #d9dfe8;
   background: #f0f6ff;
+  color: #268ded;
+}
+.np-search .np-search-icon {
+  flex: none;
+  margin: 0 8px;
+  color: #5c6773;
 }
 .np-filter {
   display: flex;
-  align-items: center;
-  width: 236px;
-  height: 32px;
-  padding-left: 8px;
+  flex-direction: column;
+  justify-content: center;
+  width: 168px;
+  height: 40px;
+  padding: 2px 0 0 10px;
   border: 1px solid #d9dfe8;
-  border-radius: 2px;
+  border-radius: 3px;
   background: #fff;
   font-size: 14px;
 }
@@ -351,23 +367,26 @@
   border-color: #3b8cff;
 }
 .np-filter > span {
-  flex: 0 1 auto;
-  max-width: 150px;
+  max-width: calc(100% - 8px);
   color: #7d8690;
+  font-size: 11px;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .np-filter select {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  height: 30px;
-  padding: 0 4px 0 6px;
+  height: 20px;
+  margin-left: -2px;
+  padding: 0 4px 0 0;
   border: 0;
   outline: 0;
   background-color: transparent;
   color: #405364;
   font-size: 14px;
+  line-height: 1.2;
 }
 .np-facet-menu {
   width: 240px;
@@ -400,39 +419,85 @@
   color: #268ded;
   font-size: 14px;
 }
-.np-view-options {
+.np-view-row {
+  position: relative;
   display: flex;
   align-items: center;
-  flex: 1 1 280px;
-  min-width: 280px;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+  margin-left: 14px;
+  padding-left: 16px;
   font-size: 14px;
 }
-.np-view-options > span {
-  white-space: nowrap;
-  background: #eaedf2;
-  border: 1px solid #d6dde7;
-  border-right: 0;
-  padding: 0 10px;
-  height: 32px;
+.np-view-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -12px;
+  width: 14px;
+  height: calc(50% + 12px);
+  border-left: 1px solid #c5ccd6;
+  border-bottom: 1px solid #c5ccd6;
+  border-bottom-left-radius: 4px;
+}
+.np-view-group {
+  display: flex;
+  align-items: stretch;
+  height: 28px;
+}
+.np-view-label {
   display: flex;
   align-items: center;
-  background: #f0f2f5;
-  border-color: #d9dfe8;
+  padding: 0 8px;
+  white-space: nowrap;
+  background: #eaedf2;
+  border: 1px solid #d9dfe8;
+  border-right: 0;
+  border-radius: 3px 0 0 3px;
   color: #3b4651;
 }
+.np-view-seg {
+  display: flex;
+  border: 1px solid #d9dfe8;
+  border-radius: 0 3px 3px 0;
+  overflow: hidden;
+  background: #fff;
+}
+.np-app .np-view-seg button {
+  padding: 0 10px;
+  font-size: 14px;
+  white-space: nowrap;
+  color: #3b4651;
+  background: #fff;
+}
+.np-app .np-view-seg button + button {
+  border-left: 1px solid #d9dfe8;
+}
+.np-app .np-view-seg button.active {
+  background: #1f6fd0;
+  color: #fff;
+  font-weight: 600;
+}
 .np-app .np-view-trigger {
-  height: 32px;
-  flex: 1;
+  height: 28px;
   width: auto;
+  min-width: 260px;
   justify-content: space-between;
   text-align: left;
   padding: 0 10px;
   border: 1px solid #d9dfe8;
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 3px 3px 0;
   font-size: 14px;
   color: #3b4651;
   background: #fff;
   box-shadow: none;
+}
+.np-app .np-view-trigger:disabled {
+  background: #f0f2f5;
+  color: #9aa3ad;
+  cursor: not-allowed;
+  opacity: 1;
 }
 .np-app .np-view-trigger {
   min-width: 0;
@@ -732,6 +797,9 @@
 }
 .np-status-line.down {
   background: #f06d6d;
+}
+.np-status-line.nodata {
+  background: #c0c4cc;
 }
 .np-tags {
   display: flex;
@@ -1683,8 +1751,31 @@
     padding: 10px 8px;
     gap: 8px;
   }
-  .np-view-options {
+  .np-search {
+    width: 100%;
+  }
+  .np-filter {
+    flex: 1 1 140px;
+    width: auto;
+  }
+  .np-view-row {
+    width: calc(100% - 6px);
+    margin-left: 6px;
+    padding-left: 12px;
+  }
+  .np-view-group {
     flex: 1 1 100%;
+    min-width: 0;
+  }
+  .np-status-segment {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .np-status-segment button {
+    flex: none;
+  }
+  .np-app .np-view-trigger {
+    flex: 1;
     min-width: 0;
   }
   .np-explorer {

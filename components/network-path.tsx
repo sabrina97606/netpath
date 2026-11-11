@@ -60,7 +60,10 @@ type Test = {
   site: string;
   env: string;
   interval?: string;
+  noData?: boolean;
 };
+const statusOf = (test: Test) =>
+  test.noData ? "No Data" : test.reach > 0 ? "Reachable" : "Unreachable";
 const ip = (name: string) => cmdbDevice(name).ip;
 const initialTests: Test[] = [
   { id: "70de870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "TCP", port: "443", reach: 99.8, rtt: 23, site: "sh-dc1", env: "production" },
@@ -69,6 +72,7 @@ const initialTests: Test[] = [
   { id: "a80246de490bb32c", source: "GZ-HQ-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "UDP", port: "", reach: 97.4, rtt: 41, site: "gz-hq", env: "production" },
   { id: "b3159c0d7e2a46f1", source: "SH-DC1-DMZ-FW01", destination: ip("HZ-CAMPUS-EDGE-FW01"), protocol: "TCP", port: "22", reach: 99.9, rtt: 9, site: "sh-dc1", env: "production" },
   { id: "c9e21b84a05d3f67", source: "BJ-HQ-CORE-SW01", destination: ip("WH-CAMPUS-CORE-SW01"), protocol: "TCP", port: "161", reach: 0, rtt: 0, site: "bj-hq", env: "production" },
+  { id: "e4f7a90b3c1d5e82", source: "SZ-DC1-CORE-SW01", destination: ip("GZ-HQ-CORE-SW01"), protocol: "TCP", port: "8443", reach: 0, rtt: 0, site: "sz-dc1", env: "production", noData: true },
 ];
 function AddFacetMenu({
   onPick,
@@ -359,8 +363,7 @@ export function NetworkPath() {
         (port === "All" || (test.port || "-") === port) &&
         (protocol === "All" || test.protocol === protocol) &&
         (testId === "All" || test.id === testId) &&
-        (status === "All Tests" ||
-          (status === "Reachable" ? test.reach > 0 : test.reach === 0)) &&
+        (status === "All Tests" || statusOf(test) === status) &&
         matchesSearch(test, query),
     )
     .sort((left, right) =>
@@ -474,21 +477,33 @@ export function NetworkPath() {
     );
     setNotice(stored ? "Saved view restored" : "Default view restored");
   };
-  const metrics = (test: Test) => (
-    <>
-      <div className="np-metric">
-        <strong>{test.reach}%</strong>
-        <Sparkline value={test.reach} />
-      </div>
-      <div className="np-metric">
-        <strong>{test.rtt ? `${test.rtt} ms` : "0 ns"}</strong>
-        <Sparkline value={test.rtt} latency />
-      </div>
-    </>
-  );
+  const metrics = (test: Test) =>
+    test.noData ? (
+      <>
+        <div className="np-metric">
+          <strong className="np-muted">No data</strong>
+        </div>
+        <div className="np-metric">
+          <strong className="np-muted">No data</strong>
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="np-metric">
+          <strong>{test.reach}%</strong>
+          <Sparkline value={test.reach} />
+        </div>
+        <div className="np-metric">
+          <strong>{test.rtt ? `${test.rtt} ms` : "0 ns"}</strong>
+          <Sparkline value={test.rtt} latency />
+        </div>
+      </>
+    );
   const testRow = (test: Test) => (
     <div className="np-test-row" key={test.id}>
-      <span className={`np-status-line ${test.reach ? "" : "down"}`} />
+      <span
+        className={`np-status-line ${test.noData ? "nodata" : test.reach ? "" : "down"}`}
+      />
       <button className="np-source-link" onClick={() => openDetail(test)}>
         <SourceName name={test.source} />
       </button>
@@ -529,7 +544,7 @@ export function NetworkPath() {
     field === "Protocol"
       ? ["TCP", "UDP"]
       : field === "Destination Reachable"
-        ? ["Reachable", "Unreachable"]
+        ? ["Reachable", "Unreachable", "No Data"]
         : field.includes("Source")
           ? [...new Set(tests.map((test) => test.source))]
           : field.includes("Port")
@@ -773,17 +788,8 @@ export function NetworkPath() {
           {tab === "Explorer" && !detailOpen && (
             <>
               <section className="np-filterbar">
+                <div className="np-filter-main">
                 <div className="np-search">
-                  <Search size={13} />
-                  <input
-                    aria-label="Search tests"
-                    placeholder="Search for"
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
-                      resetPage();
-                    }}
-                  />
                   <IconButton
                     label="Show facets"
                     onClick={() => {
@@ -793,6 +799,16 @@ export function NetworkPath() {
                   >
                     <Filter size={12} />
                   </IconButton>
+                  <input
+                    aria-label="Search tests"
+                    placeholder="Search for"
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      resetPage();
+                    }}
+                  />
+                  <Search size={13} className="np-search-icon" />
                 </div>
                 {[
                   {
@@ -847,45 +863,6 @@ export function NetworkPath() {
                     </select>
                   </label>
                 ))}
-                <div className="np-view-options">
-                  <span>View By</span>
-                  <Select
-                    value={view === "Individual Tests" ? "individual" : groupBy}
-                    onValueChange={(value) => {
-                      setView(
-                        value === "individual"
-                          ? "Individual Tests"
-                          : "Grouped Tests",
-                      );
-                      if (value !== "individual") setGroupBy(value);
-                      resetPage();
-                    }}
-                  >
-                    <SelectTrigger
-                      className="np-view-trigger"
-                      aria-label="View By"
-                    >
-                      <SelectValue>
-                        {view === "Individual Tests"
-                          ? "Individual Tests"
-                          : groupBy === "destination"
-                            ? "destination.hostname"
-                            : "source.display_name × destination.hostname"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="np-view-menu">
-                      <SelectItem value="individual">
-                        Individual Tests
-                      </SelectItem>
-                      <SelectItem value="source">
-                        source.display_name × destination.hostname
-                      </SelectItem>
-                      <SelectItem value="destination">
-                        destination.hostname
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
                 <AddFacetMenu onPick={revealFacet}>
                   <button type="button" className="np-blue-link">
                     <Plus size={13} /> Add Facet
@@ -906,6 +883,62 @@ export function NetworkPath() {
                 >
                   Reset
                 </button>
+                </div>
+                <div className="np-view-row">
+                  <div className="np-view-group">
+                    <span className="np-view-label">View as</span>
+                    <div className="np-view-seg" role="group" aria-label="View as">
+                      {(["Individual Tests", "Grouped Tests"] as const).map(
+                        (option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={view === option ? "active" : ""}
+                            aria-pressed={view === option}
+                            onClick={() => {
+                              setView(option);
+                              resetPage();
+                            }}
+                          >
+                            {option}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div className="np-view-group">
+                    <span className="np-view-label">Group by</span>
+                    <Select
+                      value={groupBy}
+                      disabled={view === "Individual Tests"}
+                      onValueChange={(value) => {
+                        setGroupBy(value);
+                        resetPage();
+                      }}
+                    >
+                      <SelectTrigger
+                        className="np-view-trigger"
+                        aria-label="Group by"
+                      >
+                        <SelectValue>
+                          {view === "Individual Tests"
+                            ? "Ungrouped tests"
+                            : groupBy === "destination"
+                              ? "destination.hostname"
+                              : "source.display_name × destination.hostname"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="np-view-menu">
+                        <SelectItem value="source">
+                          source.display_name × destination.hostname
+                        </SelectItem>
+                        <SelectItem value="destination">
+                          destination.hostname
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </section>
               <div className="np-explorer">
                 <aside className="np-facets">
@@ -1048,7 +1081,7 @@ export function NetworkPath() {
                 <section className="np-results">
                   <div className="np-results-toolbar">
                     <div className="np-segment np-status-segment">
-                      {["All Tests", "Reachable", "Unreachable"].map((item) => (
+                      {["All Tests", "Reachable", "Unreachable", "No Data"].map((item) => (
                         <button
                           className={status === item ? "active" : ""}
                           key={item}
@@ -1060,11 +1093,8 @@ export function NetworkPath() {
                           {item} (
                           {item === "All Tests"
                             ? tests.length
-                            : tests.filter((test) =>
-                                item === "Reachable"
-                                  ? test.reach > 0
-                                  : test.reach === 0,
-                              ).length}
+                            : tests.filter((test) => statusOf(test) === item)
+                                .length}
                           )
                         </button>
                       ))}
@@ -1134,20 +1164,23 @@ export function NetworkPath() {
                         </div>
                         {visibleGroups.map(([key, items]) => {
                           const test = items[0];
+                          const measured = items.filter((item) => !item.noData);
+                          const divisor = measured.length || 1;
                           const aggregate = {
                             ...test,
+                            noData: measured.length === 0,
                             reach:
                               Math.round(
-                                (items.reduce(
+                                (measured.reduce(
                                   (sum, item) => sum + item.reach,
                                   0,
                                 ) /
-                                  items.length) *
+                                  divisor) *
                                   10,
                               ) / 10,
                             rtt: Math.round(
-                              items.reduce((sum, item) => sum + item.rtt, 0) /
-                                items.length,
+                              measured.reduce((sum, item) => sum + item.rtt, 0) /
+                                divisor,
                             ),
                           };
                           const isExpanded = expanded.includes(
@@ -1321,8 +1354,16 @@ export function NetworkPath() {
                       {test.protocol}
                       {test.port && ` : ${test.port}`}
                     </span>
-                    <span className={test.reach ? "np-green" : "np-red"}>
-                      {test.reach ? "Reachable" : "Unreachable"}
+                    <span
+                      className={
+                        test.noData
+                          ? "np-muted"
+                          : test.reach
+                            ? "np-green"
+                            : "np-red"
+                      }
+                    >
+                      {statusOf(test)}
                     </span>
                     <IconButton
                       label={`Delete test ${test.destination}`}
@@ -1418,6 +1459,7 @@ export function NetworkPath() {
                     port: newProtocol === "ICMP" ? "" : newPort,
                     reach: 0,
                     rtt: 0,
+                    noData: true,
                     site: "sh-dc1",
                     env: "production",
                     interval: newInterval,
@@ -1552,8 +1594,16 @@ export function NetworkPath() {
                   <div key={test.id} className="np-route">
                     <div className="np-route-name">
                       <Destination name={test.destination} />
-                      <span className={test.reach ? "np-green" : "np-red"}>
-                        {test.reach ? "Reachable" : "Unreachable"}
+                      <span
+                        className={
+                          test.noData
+                            ? "np-muted"
+                            : test.reach
+                              ? "np-green"
+                              : "np-red"
+                        }
+                      >
+                        {statusOf(test)}
                       </span>
                     </div>
                     <div className="np-path-nodes">
