@@ -677,13 +677,27 @@ export function NetworkPath() {
               <span />
             </button>
             <button
-              className="np-my-view"
+              className={`np-my-view${viewDirty ? " dirty" : ""}`}
               aria-expanded={viewsOpen}
               aria-controls="np-views-panel"
               onClick={() => setViewsOpen((value) => !value)}
             >
+              {viewDirty && <span className="np-my-view-dot" aria-hidden="true" />}
               {t("My View")}
             </button>
+            {viewDirty && !viewsOpen && tab === "Explorer" && !detailOpen && (
+              <div className="np-view-pill" role="status">
+                <span className="np-view-pill-text">
+                  <strong>{t(savedViews.activeName)}</strong> · {t("Modified")}
+                </span>
+                <button type="button" className="np-view-revert" onClick={revertViewChanges}>
+                  {t("Revert")}
+                </button>
+                <button type="button" className="np-view-savechanges" onClick={saveViewChanges}>
+                  {t("Save changes")}
+                </button>
+              </div>
+            )}
             <h1>{t("Network Path")}</h1>
             <div className="np-module-tabs">
               <div>
@@ -787,21 +801,6 @@ export function NetworkPath() {
             onRevert={revertViewChanges}
           />
           <div className="np-content">
-          {viewDirty && tab === "Explorer" && !detailOpen && (
-            <div className="np-view-dirtybar" role="status">
-              <span className="np-view-dirtybar-dot" aria-hidden="true" />
-              <span className="np-view-dirtybar-text">
-                {isZh ? "当前视图" : "Current view"} <strong>{t(savedViews.activeName)}</strong>{" "}
-                {t("has unsaved changes")}
-              </span>
-              <button type="button" className="np-view-revert" onClick={revertViewChanges}>
-                {t("Revert")}
-              </button>
-              <button type="button" className="np-view-savechanges" onClick={saveViewChanges}>
-                {t("Save changes")}
-              </button>
-            </div>
-          )}
           {notice && (
             <div className="np-notice" role="status">
               {t(notice)}

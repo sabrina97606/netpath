@@ -199,13 +199,18 @@ export function NetworkPathViewsDrawer({
         <div className="np-views-head">
           {dirty && (
             <div className="np-views-dirty-row" role="status">
-              <span>{t("Unsaved changes")}</span>
-              <button type="button" className="np-views-revert" onClick={onRevert}>
-                {t("Revert")}
-              </button>
-              <button type="button" className="np-views-confirm" onClick={onSaveChanges}>
-                {t("Save changes")}
-              </button>
+              <div className="np-views-dirty-text">
+                <span className="np-view-dirtybar-dot" aria-hidden="true" />
+                <span>{t("Unsaved changes")}</span>
+              </div>
+              <div className="np-views-dirty-actions">
+                <button type="button" className="np-views-revert" onClick={onRevert}>
+                  {t("Revert")}
+                </button>
+                <button type="button" className="np-views-confirm" onClick={onSaveChanges}>
+                  {t("Save changes")}
+                </button>
+              </div>
             </div>
           )}
           {naming ? (
