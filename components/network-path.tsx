@@ -678,9 +678,9 @@ export function NetworkPath() {
             </button>
             <button
               className="np-my-view"
-              aria-haspopup="dialog"
               aria-expanded={viewsOpen}
-              onClick={() => setViewsOpen(true)}
+              aria-controls="np-views-panel"
+              onClick={() => setViewsOpen((value) => !value)}
             >
               {t("My View")}
             </button>
@@ -776,6 +776,20 @@ export function NetworkPath() {
             </div>
             {!showChrome && <NetworkPathLanguageSwitch />}
           </div>
+          <div className="np-body">
+          <NetworkPathViewsDrawer
+            open={viewsOpen}
+            current={currentConfig}
+            onClose={() => setViewsOpen(false)}
+            onDefault={() => {
+              restoreView();
+            }}
+            onApply={(config, name) => {
+              applyConfig(config);
+              setNotice(`View applied: ${name}`);
+            }}
+          />
+          <div className="np-content">
           {notice && (
             <div className="np-notice" role="status">
               {t(notice)}
@@ -1402,22 +1416,10 @@ export function NetworkPath() {
               }}
             />
           )}
+          </div>
+          </div>
         </main>
       </div>
-      <NetworkPathViewsDrawer
-        open={viewsOpen}
-        current={currentConfig}
-        onClose={() => setViewsOpen(false)}
-        onDefault={() => {
-          restoreView();
-          setViewsOpen(false);
-        }}
-        onApply={(config, name) => {
-          applyConfig(config);
-          setNotice(`View applied: ${name}`);
-          setViewsOpen(false);
-        }}
-      />
       {drawer && (
         <div className="np-overlay" onClick={() => setDrawer(null)}>
           <section

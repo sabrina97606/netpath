@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Pencil, Search, Star, Trash2 } from "lucide-react";
+import { ChevronLeft, Pencil, Search, Star, Trash2 } from "lucide-react";
 import { useNpI18n } from "@/lib/network-path-i18n";
 
 export type ViewConfig = {
@@ -125,20 +125,8 @@ export function NetworkPathViewsDrawer({
   const nameOf = (name: string) => t(name);
 
   useEffect(() => {
-    if (!open) return;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    searchRef.current?.focus();
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", dismiss);
-    return () => {
-      document.removeEventListener("keydown", dismiss);
-      previousFocus?.focus();
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
+    if (open) searchRef.current?.focus({ preventScroll: true });
+  }, [open]);
 
   const needle = keyword.trim().toLowerCase();
   const visible = views.filter(
@@ -176,14 +164,15 @@ export function NetworkPathViewsDrawer({
   };
 
   return (
-    <div className="np-overlay np-overlay-left" onClick={onClose}>
-      <aside
-        className="np-views-drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("View list")}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className={`np-views-dock${open ? " open" : ""}`} inert={!open}>
+      <aside id="np-views-panel" className="np-views-drawer" aria-label={t("View list")}>
+        <div className="np-views-title">
+          <button type="button" className="np-views-hide" onClick={onClose}>
+            <ChevronLeft size={13} aria-hidden="true" />
+            {t("Hide")}
+          </button>
+          <strong>{t("My View")}</strong>
+        </div>
         <div className="np-views-head">
           {naming ? (
             <form
