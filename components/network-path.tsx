@@ -5,8 +5,11 @@ import { NetworkPathDetail } from "@/components/network-path-detail";
 import { CiLink } from "@/components/ci-link";
 import { NetworkPathDashboard } from "@/components/network-path-dashboard";
 import {
+  DEFAULT_VIEW_ID,
   NetworkPathViewsDrawer,
   defaultViewConfig,
+  sameConfig,
+  useSavedViews,
   type ViewConfig,
 } from "@/components/network-path-views-drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -26,7 +29,6 @@ import {
   ArrowRight,
   Bell,
   Box,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -304,7 +306,7 @@ export function NetworkPath() {
     null,
   );
   const [formError, setFormError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const savedViews = useSavedViews();
   const [viewsOpen, setViewsOpen] = useState(false);
   const { t, isZh } = useNpI18n();
   const refresh = () => setRefreshed(new Date().toLocaleTimeString("en-GB"));
@@ -430,25 +432,6 @@ export function NetworkPath() {
     link.click();
     URL.revokeObjectURL(url);
   };
-  const saveView = () => {
-    localStorage.setItem(
-      "doop-network-path-view",
-      JSON.stringify({
-        query,
-        source,
-        destination,
-        port,
-        protocol,
-        testId,
-        status,
-        view,
-        groupBy,
-        range,
-      }),
-    );
-    setSaved(true);
-    setNotice("View saved");
-  };
   const currentConfig: ViewConfig = {
     query,
     source,
@@ -476,13 +459,30 @@ export function NetworkPath() {
   };
   const restoreView = () => {
     const stored = localStorage.getItem("doop-network-path-view");
-    applyConfig(
-      stored
-        ? { ...defaultViewConfig, ...JSON.parse(stored) }
-        : defaultViewConfig,
-    );
+    const config: ViewConfig = stored
+      ? { ...defaultViewConfig, ...JSON.parse(stored) }
+      : defaultViewConfig;
+    applyConfig(config);
+    savedViews.setDefaultConfig(config);
     setNotice(stored ? "Saved view restored" : "Default view restored");
-    /* 提示文案在渲染时统一翻译 */
+  };
+  const viewDirty = !sameConfig(currentConfig, savedViews.baseline);
+  const saveViewChanges = () => {
+    if (savedViews.activeId === DEFAULT_VIEW_ID) {
+      localStorage.setItem("doop-network-path-view", JSON.stringify(currentConfig));
+      savedViews.setDefaultConfig(currentConfig);
+    } else {
+      savedViews.setViews(
+        savedViews.views.map((item) =>
+          item.id === savedViews.activeId ? { ...item, config: currentConfig } : item,
+        ),
+      );
+    }
+    setNotice(`Changes saved to view: ${savedViews.activeName}`);
+  };
+  const revertViewChanges = () => {
+    applyConfig(savedViews.baseline);
+    setNotice(`Changes reverted: ${savedViews.activeName}`);
   };
   const metrics = (test: Test) =>
     test.noData ? (
@@ -702,13 +702,6 @@ export function NetworkPath() {
               </div>
             </div>
             <div className="np-viewbar">
-              {!detailOpen && (
-                <>
-                  <IconButton label="Save current view" onClick={saveView}>
-                    {saved ? <Check size={13} /> : <MoreVertical size={13} />}
-                  </IconButton>
-                </>
-              )}
               <div className="np-timebar">
                 <span>UTC+08:00</span>
                 <select
@@ -780,6 +773,8 @@ export function NetworkPath() {
           <NetworkPathViewsDrawer
             open={viewsOpen}
             current={currentConfig}
+            store={savedViews}
+            dirty={viewDirty}
             onClose={() => setViewsOpen(false)}
             onDefault={() => {
               restoreView();
@@ -788,8 +783,25 @@ export function NetworkPath() {
               applyConfig(config);
               setNotice(`View applied: ${name}`);
             }}
+            onSaveChanges={saveViewChanges}
+            onRevert={revertViewChanges}
           />
           <div className="np-content">
+          {viewDirty && tab === "Explorer" && !detailOpen && (
+            <div className="np-view-dirtybar" role="status">
+              <span className="np-view-dirtybar-dot" aria-hidden="true" />
+              <span className="np-view-dirtybar-text">
+                {isZh ? "当前视图" : "Current view"} <strong>{t(savedViews.activeName)}</strong>{" "}
+                {t("has unsaved changes")}
+              </span>
+              <button type="button" className="np-view-revert" onClick={revertViewChanges}>
+                {t("Revert")}
+              </button>
+              <button type="button" className="np-view-savechanges" onClick={saveViewChanges}>
+                {t("Save changes")}
+              </button>
+            </div>
+          )}
           {notice && (
             <div className="np-notice" role="status">
               {t(notice)}

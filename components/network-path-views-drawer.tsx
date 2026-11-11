@@ -38,7 +38,11 @@ type SavedView = {
   mine: boolean;
 };
 
-const DEFAULT_ID = "default";
+export const DEFAULT_VIEW_ID = "default";
+const DEFAULT_ID = DEFAULT_VIEW_ID;
+
+export const sameConfig = (a: ViewConfig, b: ViewConfig) =>
+  (Object.keys(defaultViewConfig) as (keyof ViewConfig)[]).every((key) => a[key] === b[key]);
 
 const describe = (config: ViewConfig, noFilters: string) => {
   const parts: string[] = [];
@@ -98,21 +102,40 @@ const seedViews: SavedView[] = [
   },
 ];
 
+export function useSavedViews() {
+  const [views, setViews] = useState<SavedView[]>(seedViews);
+  const [activeId, setActiveId] = useState(DEFAULT_ID);
+  const [defaultConfig, setDefaultConfig] = useState<ViewConfig>(defaultViewConfig);
+  const activeView = views.find((item) => item.id === activeId);
+  const baseline = activeView ? activeView.config : defaultConfig;
+  const activeName = activeView ? activeView.name : "My view";
+  return { views, setViews, activeId, setActiveId, defaultConfig, setDefaultConfig, baseline, activeName };
+}
+
+export type SavedViewsStore = ReturnType<typeof useSavedViews>;
+
 export function NetworkPathViewsDrawer({
   open,
   current,
+  store,
+  dirty,
   onClose,
   onApply,
   onDefault,
+  onSaveChanges,
+  onRevert,
 }: {
   open: boolean;
   current: ViewConfig;
+  store: SavedViewsStore;
+  dirty: boolean;
   onClose: () => void;
   onApply: (config: ViewConfig, name: string) => void;
   onDefault: () => void;
+  onSaveChanges: () => void;
+  onRevert: () => void;
 }) {
-  const [views, setViews] = useState<SavedView[]>(seedViews);
-  const [activeId, setActiveId] = useState(DEFAULT_ID);
+  const { views, setViews, activeId, setActiveId } = store;
   const [keyword, setKeyword] = useState("");
   const [mineOnly, setMineOnly] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -174,6 +197,17 @@ export function NetworkPathViewsDrawer({
           <strong>{t("My View")}</strong>
         </div>
         <div className="np-views-head">
+          {dirty && (
+            <div className="np-views-dirty-row" role="status">
+              <span>{t("Unsaved changes")}</span>
+              <button type="button" className="np-views-revert" onClick={onRevert}>
+                {t("Revert")}
+              </button>
+              <button type="button" className="np-views-confirm" onClick={onSaveChanges}>
+                {t("Save changes")}
+              </button>
+            </div>
+          )}
           {naming ? (
             <form
               className="np-views-naming"
@@ -245,7 +279,10 @@ export function NetworkPathViewsDrawer({
                   onDefault();
                 }}
               >
-                <strong>{t("My view")}</strong>
+                <strong>
+                  {t("My view")}
+                  {dirty && activeId === DEFAULT_ID && <em className="np-views-dirty">{t("Modified")}</em>}
+                </strong>
                 <small>{t("This is your default view")}</small>
               </button>
             </li>
@@ -291,7 +328,10 @@ export function NetworkPathViewsDrawer({
                     onApply(item.config, item.name);
                   }}
                 >
-                  <strong>{nameOf(item.name)}</strong>
+                  <strong>
+                    {nameOf(item.name)}
+                    {dirty && activeId === item.id && <em className="np-views-dirty">{t("Modified")}</em>}
+                  </strong>
                   <small>{describe(item.config, noFilters)}</small>
                 </button>
               )}
