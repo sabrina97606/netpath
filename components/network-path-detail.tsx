@@ -1085,6 +1085,11 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                   </button>
                 </header>
                 {renderObservations(hop)}
+                <div className="npd-traversed">
+                  <Activity size={13} />
+                  <span>{t("Traversed count")}</span>
+                  <strong>{hop.data.traversed}</strong>
+                </div>
                 {(() => {
                   const isDestination = hop.data.kind === "destination";
                   const meta = isDestination
@@ -1151,11 +1156,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                     </>
                   );
                 })()}
-                <div className="npd-traversed">
-                  <Activity size={13} />
-                  <span>{t("Traversed count")}</span>
-                  <strong>{hop.data.traversed}</strong>
-                </div>
                 <button
                   className="np-primary npd-inspect-button"
                   onClick={() => {
