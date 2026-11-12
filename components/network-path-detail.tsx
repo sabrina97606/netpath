@@ -10,7 +10,7 @@ import {
 } from "@/lib/network-path-timeline";
 import { CiLink } from "@/components/ci-link";
 import { useNpI18n } from "@/lib/network-path-i18n";
-import { cmdbByIp, cmdbByName } from "@/lib/cmdb";
+import { cityOf, cmdbByIp, cmdbByName } from "@/lib/cmdb";
 import {
   buildPathSnapshot,
   type PathStats,
@@ -56,6 +56,48 @@ import {
 } from "@xyflow/react";
 import "@/app/network-path/network-path-detail.css";
 
+type DestinationMeta = {
+  hostname?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  timezone?: string;
+  deviceType?: string;
+  vendor?: string;
+  model?: string;
+};
+const PUBLIC_DESTINATIONS: Record<string, DestinationMeta> = {
+  "1.1.1.1": {
+    hostname: "one.one.one.one",
+    city: "Brisbane",
+    region: "Queensland",
+    country: "Australia",
+    timezone: "UTC+10:00",
+  },
+  "8.8.8.8": {
+    hostname: "dns.google",
+    city: "Mountain View",
+    region: "California",
+    country: "United States",
+    timezone: "UTC-08:00",
+  },
+};
+function destinationMeta(ip: string | undefined, fallback: string): DestinationMeta {
+  if (ip && PUBLIC_DESTINATIONS[ip]) return PUBLIC_DESTINATIONS[ip];
+  const ci = cmdbByIp.get(ip ?? "") ?? cmdbByName.get(fallback);
+  if (ci) {
+    return {
+      hostname: ci.name,
+      city: cityOf(ci.name)?.name,
+      country: "China",
+      timezone: "UTC+08:00",
+      deviceType: ci.type === "firewall" ? "Firewall" : "Switch",
+      vendor: ci.vendor,
+      model: ci.model,
+    };
+  }
+  return /[a-z]/i.test(fallback) ? { hostname: fallback } : {};
+}
 type PathTest = {
   id: string;
   source: string;
@@ -1038,22 +1080,28 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                   </button>
                 </header>
                 {renderObservations(hop)}
-                <dl>
-                  {[
+                {(() => {
+                  const isDestination = hop.data.kind === "destination";
+                  const meta = isDestination
+                    ? destinationMeta(hop.data.ip, test.destination)
+                    : {};
+                  const identityRows: [string, string | undefined][] = [
                     ["IP Address", hop.data.ip],
                     [
                       "Hostname",
-                      hop.data.kind === "source" ? test.source : undefined,
+                      hop.data.kind === "source" ? test.source : meta.hostname,
                     ],
                     ["AS Name", hop.data.asName],
                     [
                       "City",
-                      hop.data.kind === "source" ? "Shanghai" : undefined,
+                      hop.data.kind === "source" ? "Shanghai" : meta.city,
                     ],
+                    ["Region", meta.region],
                     [
                       "Country",
-                      hop.data.kind === "source" ? "China" : undefined,
+                      hop.data.kind === "source" ? "China" : meta.country,
                     ],
+                    ["Timezone", meta.timezone],
                     [
                       "AS Number",
                       hop.data.kind === "source"
@@ -1062,15 +1110,42 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                           ? hop.data.asn
                           : undefined,
                     ],
-                  ]
-                    .filter(([, value]) => value)
-                    .map(([label, value]) => (
-                      <div key={label}>
-                        <dt>{t(label as string)}</dt>
-                        <dd title={value}>{t(value as string)}</dd>
-                      </div>
-                    ))}
-                </dl>
+                    ["Device type", meta.deviceType],
+                    ["Vendor", meta.vendor],
+                    ["Model", meta.model],
+                  ];
+                  const testRows: [string, string | undefined][] = isDestination
+                    ? [
+                        ["Protocol", test.protocol],
+                        ["Port", test.port || undefined],
+                        ["Reachability", `${snapshot.reach}%`],
+                        ["Site", test.site],
+                        ["Environment", test.env],
+                      ]
+                    : [];
+                  const renderRows = (rows: [string, string | undefined][]) =>
+                    rows
+                      .filter(([, value]) => value)
+                      .map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{t(label)}</dt>
+                          <dd title={value}>{t(value as string)}</dd>
+                        </div>
+                      ));
+                  return (
+                    <>
+                      <dl>{renderRows(identityRows)}</dl>
+                      {testRows.length > 0 && (
+                        <>
+                          <div className="npd-popover-subhead">
+                            {t("Test configuration")}
+                          </div>
+                          <dl>{renderRows(testRows)}</dl>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
                 <div className="npd-traversed">
                   <Activity size={13} />
                   <span>{t("Traversed count")}</span>
