@@ -824,6 +824,7 @@ export function NetworkPath() {
                     "Network Devices",
                     "Network Path",
                     "IP SLA",
+                    "NCM",
                     "Resources",
                     "Reports",
                   ].map((label) => (
@@ -833,6 +834,8 @@ export function NetworkPath() {
                       onClick={() => {
                         if (label === "IP SLA") {
                           window.location.assign("/ip-sla");
+                        } else if (label === "NCM") {
+                          window.location.assign("/ncm");
                         } else if (label !== "Network Path") {
                           setNotice(
                             `${label} is outside the Network Path prototype`,
