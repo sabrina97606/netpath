@@ -68,7 +68,7 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
             <TableRow>
               <TableHead>Device</TableHead><TableHead>Vendor / model</TableHead><TableHead>Site</TableHead>
               <TableHead>Protocol</TableHead><TableHead>Schedule</TableHead><TableHead>Last backup</TableHead>
-              <TableHead>Status</TableHead><TableHead>Versions</TableHead><TableHead>Actions</TableHead>
+              <TableHead>Status</TableHead><TableHead>Versions</TableHead><TableHead className="ncm-sticky-end">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,8 +87,8 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
                     {backup.error && <small className="ncm-error">{backup.error}</small>}
                   </TableCell>
                   <TableCell>v{versions[item.name].length}</TableCell>
-                  <TableCell>
-                    <div className="ncm-actions">
+                  <TableCell className="ncm-sticky-end">
+                    <div className="ncm-actions nowrap">
                       <button type="button" className="ncm-link" disabled={backup.status === "Running"} onClick={() => onBackup([item.name])}>Back up now</button>
                       <button type="button" className="ncm-link" onClick={() => setViewing(item)}><FileText size={12} />View config</button>
                       <button type="button" className="ncm-link" onClick={() => onCompare(item.name)}><FileDiff size={12} />Compare</button>
