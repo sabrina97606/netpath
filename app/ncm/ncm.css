@@ -1,4 +1,4 @@
-.ncm-app .ncm-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ncm-app .ncm-summary { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .ncm-app .ncm-stat { height: 88px; padding-bottom: 12px; cursor: pointer; }
 .ncm-app .ncm-stat.bad strong { color: #e05a60; }
 
