@@ -49,6 +49,7 @@ import {
   Search,
   Server,
   FilterX,
+  Check,
   Settings,
   Workflow,
   X,
@@ -80,6 +81,59 @@ const numericValue: Record<string, (test: Test) => number | null> = {
   "Destination Port": (test) => (test.port ? Number(test.port) : null),
   "Destination TTL": ttlOf,
 };
+const pickFor = (test: Test, options: string[]) =>
+  options[parseInt(test.id.slice(2, 4), 16) % options.length];
+const serviceByPort: Record<string, string> = {
+  "443": "https",
+  "8443": "https",
+  "22": "ssh",
+  "161": "snmp",
+};
+const facetAccessor: Record<
+  string,
+  (test: Test) => string | string[] | undefined
+> = {
+  Protocol: (test) => test.protocol,
+  Method: (test) => (test.protocol === "TCP" ? "TCP SYN" : "UDP"),
+  Origin: () => "scheduled",
+  "Source Display Name": (test) => test.source,
+  "Source Hostname": (test) => test.source,
+  "Source Name": (test) => test.source,
+  "Source Service": () => "netpath-agent",
+  Site: (test) => test.site,
+  "Network Scope": () => "default",
+  "Destination Hostname": (test) => test.destination,
+  "Destination IP Address": (test) => test.destination,
+  "Destination Port": (test) => test.port || "-",
+  "Destination Reachable": statusOf,
+  "Destination Service": (test) => serviceByPort[test.port],
+  "Destination AS": (test) =>
+    pickFor(test, ["AS4134 China Telecom", "AS9808 China Mobile"]),
+  "Destination Country / City": (test) =>
+    pickFor(test, ["China / Beijing", "China / Shanghai", "China / Shenzhen"]),
+  "Test ID": (test) => test.id,
+  "Test Name": (test) =>
+    pickFor(test, ["Core connectivity", "DMZ reachability", "Campus uplink"]),
+  Tags: (test) => [`env:${test.env}`, `site:${test.site}`],
+  "Agent Version": (test) => pickFor(test, ["1.8.2", "1.7.5"]),
+};
+const facetFilterKey: Record<string, string> = {
+  Protocol: "protocol",
+  "Destination Reachable": "status",
+  "Source Display Name": "source",
+  "Source Hostname": "source",
+  "Source Name": "source",
+  "Destination Port": "port",
+  "Destination Hostname": "destination",
+  "Destination IP Address": "destination",
+  "Test ID": "testId",
+};
+const formatCount = (count: number) =>
+  count >= 1e6
+    ? `${(count / 1e6).toFixed(2).replace(/\.?0+$/, "")}M`
+    : count >= 1000
+      ? `${(count / 1000).toFixed(2).replace(/\.?0+$/, "")}k`
+      : String(count);
 const ip = (name: string) => cmdbDevice(name).ip;
 const initialTests: Test[] = [
   { id: "70de870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "TCP", port: "443", reach: 99.8, rtt: 23, site: "sh-dc1", env: "production" },
@@ -488,21 +542,22 @@ export function NetworkPath() {
     setStatus("All Tests");
     resetPage();
   };
+  const matchesFilters = (test: Test, skip?: string) =>
+    Object.entries(ranges).every(([field, [low, high]]) => {
+      const value = numericValue[field]?.(test);
+      return value != null && value >= low && value <= high;
+    }) &&
+    (skip === "source" || source === "All" || test.source === source) &&
+    (skip === "destination" ||
+      destination === "All" ||
+      test.destination === destination) &&
+    (skip === "port" || port === "All" || (test.port || "-") === port) &&
+    (skip === "protocol" || protocol === "All" || test.protocol === protocol) &&
+    (skip === "testId" || testId === "All" || test.id === testId) &&
+    (skip === "status" || status === "All Tests" || statusOf(test) === status) &&
+    matchesSearch(test, query);
   const filtered = tests
-    .filter(
-      (test) =>
-        Object.entries(ranges).every(([field, [low, high]]) => {
-          const value = numericValue[field]?.(test);
-          return value != null && value >= low && value <= high;
-        }) &&
-        (source === "All" || test.source === source) &&
-        (destination === "All" || test.destination === destination) &&
-        (port === "All" || (test.port || "-") === port) &&
-        (protocol === "All" || test.protocol === protocol) &&
-        (testId === "All" || test.id === testId) &&
-        (status === "All Tests" || statusOf(test) === status) &&
-        matchesSearch(test, query),
-    )
+    .filter((test) => matchesFilters(test))
     .sort((left, right) =>
       sortDirection
         ? sortDirection === "asc"
@@ -686,37 +741,32 @@ export function NetworkPath() {
       <span>{t("AVG RTT")}</span>
     </div>
   );
-  const unique = (values: string[]) => [...new Set(values)];
-  const facetValueMap: Record<string, string[]> = {
-    Protocol: ["TCP", "UDP"],
-    Method: ["TCP SYN", "ICMP Echo", "UDP"],
-    Origin: ["scheduled"],
-    "Source Display Name": unique(tests.map((test) => test.source)),
-    "Source Hostname": unique(tests.map((test) => test.source)),
-    "Source Name": unique(tests.map((test) => test.source)),
-    "Source Service": ["netpath-agent", "snmp-collector"],
-    Site: unique(tests.map((test) => test.site)),
-    "Network Scope": ["default", "dc-private-a"],
-    "Destination Hostname": unique(tests.map((test) => test.destination)),
-    "Destination IP Address": unique(tests.map((test) => test.destination)),
-    "Destination Port": unique(tests.map((test) => test.port || "-")),
-    "Destination Reachable": ["Reachable", "Unreachable", "No Data"],
-    "Destination Service": ["https", "ssh", "snmp"],
-    "Destination AS": ["AS4134 China Telecom", "AS9808 China Mobile"],
-    "Destination Country / City": [
-      "China / Beijing",
-      "China / Shanghai",
-      "China / Shenzhen",
-    ],
-    "Destination TTL": ["8", "12"],
-    "Test ID": unique(tests.map((test) => test.id)),
-    "Test Name": ["Core connectivity", "DMZ reachability", "Campus uplink"],
-    Tags: unique(
-      tests.flatMap((test) => [`env:${test.env}`, `site:${test.site}`]),
-    ),
-    "Agent Version": ["1.8.2", "1.7.5"],
+  const facetCounts = (field: string): [string, number][] => {
+    const accessor = facetAccessor[field];
+    if (!accessor) return [];
+    const counts = new globalThis.Map<string, number>();
+    for (const test of tests) {
+      if (!matchesFilters(test, facetFilterKey[field])) continue;
+      const raw = accessor(test);
+      for (const value of raw == null ? [] : [raw].flat())
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return [...counts].sort(
+      (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+    );
   };
-  const facetValues = (field: string) => facetValueMap[field] ?? [];
+  const selectedByKey: Record<string, string> = {
+    source,
+    destination,
+    port,
+    protocol,
+    testId,
+    status,
+  };
+  const facetSelected = (field: string) => {
+    const value = selectedByKey[facetFilterKey[field]];
+    return value && value !== "All" && value !== "All Tests" ? value : null;
+  };
 
   return (
     <div className="np-app">
@@ -1143,9 +1193,19 @@ export function NetworkPath() {
                               )}
                               {openFacet === field && !numericFacets[field] && (
                                 <div className="np-facet-values">
-                                  {facetValues(field).map((value) => (
+                                  {facetCounts(field).length === 0 && (
+                                    <p className="np-facet-empty">
+                                      {t("No matching values")}
+                                    </p>
+                                  )}
+                                  {facetCounts(field).map(([value, count]) => {
+                                    const selected = facetSelected(field);
+                                    const checked = !selected || selected === value;
+                                    return (
                                     <button
                                       key={value}
+                                      className={`np-facet-value${selected === value ? " active" : ""}`}
+                                      aria-pressed={selected === value}
                                       onClick={() => {
                                         if (field === "Protocol")
                                           setProtocol(
@@ -1184,6 +1244,10 @@ export function NetworkPath() {
                                               ? "All"
                                               : value,
                                           );
+                                        else if (field === "Test ID")
+                                          setTestId(
+                                            testId === value ? "All" : value,
+                                          );
                                         else
                                           setNotice(
                                             isZh
@@ -1193,19 +1257,27 @@ export function NetworkPath() {
                                         resetPage();
                                       }}
                                     >
-                                      {t(value)}
-                                      <span>
-                                        {tests.filter((test) =>
-                                          [
-                                            test.source,
-                                            test.destination,
-                                            test.protocol,
-                                            test.port,
-                                          ].includes(value),
-                                        ).length || tests.length}
+                                      <span
+                                        className={`np-facet-check${checked ? " checked" : ""}`}
+                                        aria-hidden="true"
+                                      >
+                                        {checked && <Check size={10} strokeWidth={3} />}
+                                      </span>
+                                      <span
+                                        className="np-facet-value-label"
+                                        title={t(value)}
+                                      >
+                                        {t(value)}
+                                      </span>
+                                      <span
+                                        className="np-facet-count"
+                                        title={String(count)}
+                                      >
+                                        {formatCount(count)}
                                       </span>
                                     </button>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>

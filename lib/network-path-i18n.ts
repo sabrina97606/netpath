@@ -181,6 +181,7 @@ const ZH: Record<string, string> = {
   "This is your default view": "这是您的默认视图",
   "View name": "视图名称",
   "No matching views": "没有匹配的视图",
+  "No matching values": "没有匹配的值",
   "No filters set": "未设置筛选条件",
   "Shanghai core TCP probes": "上海核心 TCP 探测",
   "Unreachable tests": "不可达测试",
