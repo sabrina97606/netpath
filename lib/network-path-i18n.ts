@@ -65,6 +65,13 @@ const ZH: Record<string, string> = {
   // Filter bar
   "Show facets": "显示分面",
   "Search tests": "搜索测试",
+  "Filter your Network Path tests. Type @ to pick a field, or enter keywords to search.":
+    "筛选您的网络路径测试，输入 @ 选择字段，或直接输入关键字搜索。",
+  "Syntax: @field:value. Numeric fields accept ranges such as [1 TO 10], >=5 or <=20.":
+    "语法：@字段:值。数值字段支持范围，例如 [1 TO 10]、>=5 或 <=20。",
+  "Remove filter": "移除筛选",
+  "Clear all filters": "清除全部筛选",
+  "Keyword search": "关键字搜索",
   "Search for": "搜索",
   "Source Display Name": "源显示名称",
   "Destination Hostname": "目的主机名",
@@ -216,7 +223,7 @@ const ZH: Record<string, string> = {
   Latest: "最新",
   Min: "最小",
   Avg: "平均",
-  Max: "最���",
+  Max: "最大",
   "End-to-end packet loss": "端到端丢包率",
   "Hop response loss": "跳点响应丢失",
   "N/A": "N/A",
@@ -224,7 +231,7 @@ const ZH: Record<string, string> = {
   "Unknown nodes": "未知节点",
   "Traversed count": "经过次数",
   "These hops aren't responding to traceroute requests likely because of a firewall or for security reasons.":
-    "这些跳点未响应路由追踪请求，可能是由于防火墙或出��安全原因。",
+    "这些跳点未响应路由追踪请求，可能是由于防火墙或出于安全原因。",
   "Destination is unreachable": "目的地不可达",
   "Hop response warning": "跳点响应告警",
   "Destination is unstable": "目的地不稳定",
@@ -418,7 +425,7 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray, t: Translate) => string][] = [
   [/^Expand (.+)$/, (m, t) => `展开 ${t(m[1])}`],
   [/^Export (.+)$/, (m, t) => `导出${t(m[1])}`],
   [/^Collapse group frame (.+)$/, (m) => `收起分组框 ${m[1]}`],
-  [/^Inspect Unknown, traversed (\d+) times$/, (m) => `查看未���节点，经过 ${m[1]} 次`],
+  [/^Inspect Unknown, traversed (\d+) times$/, (m) => `查看未知节点，经过 ${m[1]} 次`],
   [/^Expand group (.+)$/, (m) => `展开分组 ${m[1]}`],
   [/^Select (.+)$/, (m) => `选择 ${m[1]}`],
   [/^(\d+) issues?$/, (m) => `${m[1]} 个问题`],

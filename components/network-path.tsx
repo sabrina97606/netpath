@@ -54,6 +54,11 @@ import {
   X,
 } from "lucide-react";
 import { RangeFacet, type Range } from "@/components/network-path-range-facet";
+import {
+  NetworkPathQueryBar,
+  type QueryField,
+  type QueryToken,
+} from "@/components/network-path-query-bar";
 
 type Test = {
   id: string;
@@ -390,6 +395,97 @@ export function NetworkPath() {
   };
   const clearFacetRange = (field: string) => {
     setRanges(({ [field]: _removed, ...rest }) => rest);
+    resetPage();
+  };
+  const rangeFieldKeys: Record<string, string> = {
+    "Destination Port": "destination.port",
+    "Destination TTL": "destination.ttl",
+  };
+  const queryFields: QueryField[] = [
+    { key: "source.display_name", label: "Source Display Name", values: [...new Set(tests.map((test) => test.source))] },
+    { key: "destination.hostname", label: "Destination Hostname", values: [...new Set(tests.map((test) => test.destination))] },
+    { key: "destination.port", label: "Destination Port", range: numericFacets["Destination Port"] },
+    { key: "destination.ttl", label: "Destination TTL", range: numericFacets["Destination TTL"] },
+    { key: "protocol", label: "Protocol", values: ["TCP", "UDP", "ICMP"] },
+    { key: "destination.reachable", label: "Destination Reachable", values: ["Reachable", "Unreachable", "No Data"] },
+    { key: "test_id", label: "Test ID", values: tests.map((test) => test.id) },
+  ];
+  const queryTokens: QueryToken[] = [
+    ...(source !== "All" ? [{ id: "source", field: "source.display_name", value: source }] : []),
+    ...(destination !== "All" ? [{ id: "destination", field: "destination.hostname", value: destination }] : []),
+    ...(port !== "All" ? [{ id: "port", field: "destination.port", value: port }] : []),
+    ...Object.entries(ranges).map(([field, [low, high]]) => ({
+      id: `range:${field}`,
+      field: rangeFieldKeys[field] ?? field,
+      value: `[${low} TO ${high}]`,
+    })),
+    ...(protocol !== "All" ? [{ id: "protocol", field: "protocol", value: protocol }] : []),
+    ...(status !== "All Tests" ? [{ id: "status", field: "destination.reachable", value: status }] : []),
+    ...(testId !== "All" ? [{ id: "testId", field: "test_id", value: testId }] : []),
+    ...(query ? [{ id: "text", field: "", value: query }] : []),
+  ];
+  const parseRange = (raw: string, [min, max]: Range): Range | null => {
+    const text = raw.trim();
+    const num = (value: string) => (value.trim() === "*" ? null : Number(value));
+    let low: number | null = min;
+    let high: number | null = max;
+    const between = text.match(/^\[?\s*([\d.*]+)\s*(?:TO|-|~|,)\s*([\d.*]+)\s*\]?$/i);
+    const compare = text.match(/^(>=|<=|>|<)\s*([\d.]+)$/);
+    if (between) {
+      low = num(between[1]) ?? min;
+      high = num(between[2]) ?? max;
+    } else if (compare) {
+      const value = Number(compare[2]);
+      if (compare[1].startsWith(">")) low = value;
+      else high = value;
+    } else if (/^[\d.]+$/.test(text)) {
+      low = high = Number(text);
+    } else return null;
+    if (!Number.isFinite(low) || !Number.isFinite(high) || low > high) return null;
+    return [Math.max(min, low), Math.min(max, high)];
+  };
+  const applyQuery = (field: QueryField, raw: string) => {
+    const rangeName = Object.keys(rangeFieldKeys).find((name) => rangeFieldKeys[name] === field.key);
+    if (rangeName) {
+      const next = parseRange(raw, numericFacets[rangeName]);
+      if (!next) return false;
+      setFacetRange(rangeName, next);
+      setOpenFacet(rangeName);
+      return true;
+    }
+    const value =
+      field.values?.find((option) => option.toLowerCase() === raw.trim().toLowerCase()) ?? raw.trim();
+    if (!value) return false;
+    if (field.key === "source.display_name") setSource(value);
+    else if (field.key === "destination.hostname") setDestination(value);
+    else if (field.key === "protocol") setProtocol(value.toUpperCase());
+    else if (field.key === "destination.reachable") {
+      if (!field.values?.includes(value)) return false;
+      setStatus(value);
+    } else if (field.key === "test_id") setTestId(value);
+    resetPage();
+    return true;
+  };
+  const removeQueryToken = (id: string) => {
+    if (id.startsWith("range:")) return clearFacetRange(id.slice(6));
+    if (id === "source") setSource("All");
+    else if (id === "destination") setDestination("All");
+    else if (id === "port") setPort("All");
+    else if (id === "protocol") setProtocol("All");
+    else if (id === "status") setStatus("All Tests");
+    else if (id === "testId") setTestId("All");
+    else if (id === "text") setQuery("");
+    resetPage();
+  };
+  const clearAllFilters = () => {
+    setQuery("");
+    setSource("All");
+    setDestination("All");
+    setPort("All");
+    setRanges({});
+    setProtocol("All");
+    setTestId("All");
+    setStatus("All Tests");
     resetPage();
   };
   const filtered = tests
@@ -879,101 +975,17 @@ export function NetworkPath() {
             <>
               <section className="np-filterbar">
                 <div className="np-filter-main">
-                <div className="np-search">
-                  <IconButton
-                    label="Show facets"
-                    onClick={() => {
-                      setCollapsed([]);
-                      setFacetQuery("");
-                    }}
-                  >
-                    <Filter size={12} />
-                  </IconButton>
-                  <input
-                    aria-label={t("Search tests")}
-                    placeholder={t("Search for")}
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
+                  <NetworkPathQueryBar
+                    fields={queryFields}
+                    tokens={queryTokens}
+                    onApply={applyQuery}
+                    onRemove={removeQueryToken}
+                    onFreeText={(text) => {
+                      setQuery(text);
                       resetPage();
                     }}
+                    onClearAll={clearAllFilters}
                   />
-                  <Search size={13} className="np-search-icon" />
-                </div>
-                {[
-                  {
-                    label: "Source Display Name",
-                    value: source,
-                    setter: setSource,
-                    options: [...new Set(tests.map((test) => test.source))],
-                  },
-                  {
-                    label: "Destination Hostname",
-                    value: destination,
-                    setter: setDestination,
-                    options: [
-                      ...new Set(tests.map((test) => test.destination)),
-                    ],
-                  },
-                  {
-                    label: "Destination Port",
-                    value: port,
-                    setter: setPort,
-                    options: [
-                      ...new Set(tests.map((test) => test.port || "-")),
-                    ],
-                  },
-                  {
-                    label: "Test Run Type",
-                    value: protocol,
-                    setter: setProtocol,
-                    options: ["TCP", "UDP", "ICMP"],
-                  },
-                  {
-                    label: "Test ID",
-                    value: testId,
-                    setter: setTestId,
-                    options: tests.map((test) => test.id),
-                  },
-                ].map((filter) => (
-                  <label className="np-filter" key={filter.label}>
-                    <span>{t(filter.label)}</span>
-                    <select
-                      aria-label={t(filter.label)}
-                      value={filter.value}
-                      onChange={(event) => {
-                        filter.setter(event.target.value);
-                        resetPage();
-                      }}
-                    >
-                      <option value="All">{t("All")}</option>
-                      {filter.options.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-                <AddFacetMenu onPick={revealFacet}>
-                  <button type="button" className="np-blue-link">
-                    <Plus size={13} /> {t("Add Facet")}
-                  </button>
-                </AddFacetMenu>
-                <button
-                  className="np-blue-link"
-                  onClick={() => {
-                    setQuery("");
-                    setSource("All");
-                    setDestination("All");
-                    setPort("All");
-                    setRanges({});
-                    setProtocol("All");
-                    setTestId("All");
-                    setStatus("All Tests");
-                    resetPage();
-                  }}
-                >
-                  {t("Reset")}
-                </button>
                 </div>
                 <div className="np-view-row">
                   <div className="np-view-group">
