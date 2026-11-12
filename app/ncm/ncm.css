@@ -125,6 +125,49 @@
 .ncm-config-code { margin: 0; max-height: 56vh; overflow: auto; padding: 8px 0; border: 1px solid #ebeef1; background: #fafbfc; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; line-height: 22px; color: #303133; }
 .ncm-config-code span { display: block; padding-right: 12px; white-space: pre; }
 .ncm-config-code i { display: inline-block; width: 44px; margin-right: 12px; padding-right: 8px; text-align: right; font-style: normal; color: #b3bbc6; user-select: none; }
+.ncm-mode-tabs { display: flex; gap: 4px; border-bottom: 1px solid #ebeef1; }
+.ncm-mode-tabs button { height: 32px; padding: 0 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-size: 14px; color: #606266; }
+.ncm-mode-tabs button:hover { color: #409eff; }
+.ncm-mode-tabs button[aria-selected="true"] { color: #409eff; border-bottom-color: #409eff; font-weight: 500; }
+.ncm-history { max-height: 56vh; overflow: auto; border: 1px solid #ebeef1; font-size: 14px; }
+.ncm-history-row { display: grid; grid-template-columns: 52px 128px 110px minmax(0, 1fr) 84px 84px; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #ebeef1; color: #303133; }
+.ncm-history-row:last-child { border-bottom: 0; }
+.ncm-history-row.head { position: sticky; top: 0; background: #f5f7fa; font-weight: 500; color: #606266; }
+.ncm-history-row small { display: block; font-size: 12px; color: #909399; }
+.ncm-history .ncm-link { display: inline-flex; align-items: center; gap: 4px; padding: 0; color: #409eff; font-size: 14px; }
+.ncm-history .ncm-link:disabled { color: #c0c4cc; cursor: not-allowed; }
+.ncm-history .nowrap { display: inline-flex; gap: 12px; white-space: nowrap; }
+.ncm-history .ncm-source.bad { color: #e05a60; font-weight: 500; }
+.ncm-add { color: #25a77a; font-weight: 500; }
+.ncm-del { color: #e05a60; font-weight: 500; }
+.ncm-editor { display: flex; flex-direction: column; gap: 10px; }
+.ncm-editor-text { width: 100%; height: 40vh; min-height: 220px; padding: 8px 12px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fafbfc; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; line-height: 22px; color: #303133; resize: vertical; white-space: pre; overflow: auto; }
+.ncm-editor-text:focus { outline: none; border-color: #409eff; }
+.ncm-editor-text:disabled { opacity: 0.7; }
+.ncm-editor-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.ncm-editor-bar label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: #606266; }
+.ncm-editor-bar input { height: 28px; width: 220px; max-width: 100%; padding: 0 8px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fff; font-size: 14px; color: #303133; }
+.ncm-editor-bar input:focus { outline: none; border-color: #409eff; }
+.ncm-diff-stats { display: inline-flex; gap: 8px; font-size: 13px; color: #909399; }
+.ncm-editor-check { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: #f0f9eb; border: 1px solid #e1f3d8; font-size: 14px; color: #25a77a; }
+.ncm-editor-check.bad { background: #fdf6ec; border-color: #f5dab1; color: #b88230; }
+.ncm-editor-check span { font-size: 13px; color: #606266; }
+.ncm-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.ncm-editor .ncm-primary { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 2px; background: #409eff; color: #fff; font-size: 14px; }
+.ncm-editor .ncm-primary:hover:not(:disabled) { background: #337ecc; }
+.ncm-editor .ncm-primary:disabled { background: #a0cfff; cursor: not-allowed; }
+.ncm-editor .sla-secondary { height: 28px; padding: 0 12px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fff; font-size: 14px; color: #303133; }
+.ncm-editor .sla-secondary:hover:not(:disabled) { color: #409eff; border-color: #c6e2ff; }
+.ncm-editor .sla-secondary:disabled { color: #c0c4cc; cursor: not-allowed; }
+.ncm-editor .ncm-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 12px; background: #fdf6ec; border: 1px solid #f5dab1; font-size: 14px; }
+.ncm-editor .ncm-confirm > span { flex: 1 1 280px; line-height: 22px; }
+.ncm-config-actions button:disabled { color: #c0c4cc; cursor: not-allowed; }
+.ncm-config-actions button:disabled:hover { color: #c0c4cc; border-color: #dcdfe6; }
+@media (max-width: 720px) {
+  .ncm-history-row { grid-template-columns: 44px minmax(0, 1fr) auto; row-gap: 2px; }
+  .ncm-history-row > :nth-child(2), .ncm-history-row > :nth-child(3) { grid-column: 2; font-size: 13px; color: #909399; }
+  .ncm-history-row.head { display: none; }
+}
 .ncm-stacked { margin-top: 12px; }
 .ncm-app .ncm-flag { color: #e05a60; font-weight: 600; }
 .ncm-dot { width: 6px; height: 6px; border-radius: 50%; background: #e05a60; display: inline-block; }

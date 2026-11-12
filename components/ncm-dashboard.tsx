@@ -90,6 +90,17 @@ export function NcmDashboard() {
     setNotice(`${device} rolled back to v${number}. New version v${list.length + 1} created.`);
   };
 
+  const deployConfig = (device: string, lines: string[], ref: string) => {
+    if (backups[device].status === "Failed") {
+      setNotice(`Deploy to ${device} failed: ${backups[device].error ?? "device unreachable"}`);
+      return false;
+    }
+    const list = versionsRef.current[device];
+    setVersions(previous => ({ ...previous, [device]: appendVersion(list, "Planned change", ref, lines) }));
+    setNotice(`Configuration deployed to ${device}. New version v${list.length + 1} saved.`);
+    return true;
+  };
+
   const remediate = (targets: { device: string; ruleId: string }[]) => {
     const next = { ...versionsRef.current };
     let changed = 0;
@@ -218,7 +229,7 @@ export function NcmDashboard() {
                 <>
                   <NcmBackups
                     devices={devices} backups={backups} versions={versions} events={events} acked={acked} now={clock.current}
-                    onBackup={runBackups} onCompare={name => openCompare(name)} onShowChanges={showChangeLog}
+                    onBackup={runBackups} onCompare={openCompare} onDeploy={deployConfig} onShowChanges={showChangeLog}
                   />
                   <NcmChanges
                     events={events} alerts={alerts} acked={acked} unsent={unsent}

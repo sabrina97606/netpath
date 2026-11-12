@@ -18,11 +18,12 @@ type Props = {
   acked: Record<string, boolean>;
   now: number;
   onBackup: (names: string[]) => void;
-  onCompare: (name: string) => void;
+  onCompare: (name: string, to?: number) => void;
+  onDeploy: (device: string, lines: string[], ref: string) => boolean;
   onShowChanges: () => void;
 };
 
-export function NcmBackups({ devices, backups, versions, events, acked, now, onBackup, onCompare, onShowChanges }: Props) {
+export function NcmBackups({ devices, backups, versions, events, acked, now, onBackup, onCompare, onDeploy, onShowChanges }: Props) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [viewing, setViewing] = useState<CmdbDevice | null>(null);
@@ -125,7 +126,10 @@ export function NcmBackups({ devices, backups, versions, events, acked, now, onB
         </Table>
         {!rows.length && <div className="sla-empty">No devices match the current filters</div>}
       </div>
-      <NcmConfigViewer device={viewing} versions={viewing ? versions[viewing.name] : []} onClose={() => setViewing(null)} />
+      <NcmConfigViewer
+        device={viewing} versions={viewing ? versions[viewing.name] : []} onClose={() => setViewing(null)}
+        onCompare={(name, to) => { setViewing(null); onCompare(name, to); }} onDeploy={onDeploy}
+      />
     </section>
   );
 }
