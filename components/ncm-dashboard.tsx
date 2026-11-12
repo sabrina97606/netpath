@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Activity, ArrowDownUp, Bell, Box, ChevronDown, Cloud, DatabaseBackup, Database, GitCompare,
-  Home, Layers, Map, Network, Search, Settings, ShieldCheck, TerminalSquare, Workflow, X,
+  Home, Layers, Map, Network, Search, Settings, ShieldCheck, Workflow, X,
 } from "lucide-react";
 import { devices, NOW, SCRIPTS, RULES, computeCompliance, diffStats, formatTime, initialBackup, initialJobs, initialVersions, latestOf, ruleById } from "@/lib/ncm-data";
 import type { BackupInfo, ConfigVersion, Job } from "@/lib/ncm-data";
@@ -14,7 +14,7 @@ import { NcmCompliance } from "@/components/ncm-compliance";
 import { NcmAutomation } from "@/components/ncm-automation";
 import { NcmChanges, type AlertConfig, type ChangeEvent } from "@/components/ncm-changes";
 
-type TabId = "backup" | "compare" | "compliance" | "automation";
+type TabId = "backup" | "compare" | "compliance";
 
 const navigation = [
   { label: "Event", icon: Activity }, { label: "Inspection", icon: Layers },
@@ -29,10 +29,9 @@ const subnav = ["Hosts", "Processes", "Kubernetes", "Network Devices", "Network 
 const subnavHref: Record<string, string> = { "Network Path": "/network-path", "IP SLA": "/ip-sla", NCM: "/ncm" };
 
 const tabs: { id: TabId; label: string; icon: typeof Search }[] = [
-  { id: "backup", label: "Backup & Change Detection", icon: DatabaseBackup },
+  { id: "backup", label: "Overview", icon: DatabaseBackup },
   { id: "compare", label: "Compare & Rollback", icon: GitCompare },
   { id: "compliance", label: "Compliance", icon: ShieldCheck },
-  { id: "automation", label: "Bulk Automation", icon: TerminalSquare },
 ];
 
 export function NcmDashboard() {
@@ -226,6 +225,7 @@ export function NcmDashboard() {
                     onAlerts={setAlerts} onAck={key => setAcked(previous => ({ ...previous, [key]: true }))}
                     onViewDiff={openCompare} onSimulate={simulateChange}
                   />
+                  <NcmAutomation devices={devices} jobs={jobs} onRun={runJob} />
                 </>
               )}
               {tab === "compare" && <NcmCompare key={focus.stamp} devices={devices} versions={versions} focus={focus} onRollback={rollback} />}
@@ -236,7 +236,6 @@ export function NcmDashboard() {
                   onRemediateRule={ruleId => remediate(compliance.violations.filter(violation => violation.ruleId === ruleId))}
                 />
               )}
-              {tab === "automation" && <NcmAutomation devices={devices} jobs={jobs} onRun={runJob} />}
             </div>
           </div>
         </main>
