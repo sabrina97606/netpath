@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/suppress-resize-observer-error";
 import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
 import { CiLink } from "@/components/ci-link";

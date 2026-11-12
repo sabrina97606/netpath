@@ -1,5 +1,6 @@
 "use client";
 
+import "@/lib/suppress-resize-observer-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkPathAnalysis } from "./network-path-analysis";
 import { PathTimeline } from "./network-path-timeline";
@@ -502,16 +503,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       observer.disconnect();
     };
   }, [activeTab]);
-  useEffect(() => {
-    // React Flow 内部的 ResizeObserver 也会触发该无害告警，这里统一拦截
-    const swallow = (event: ErrorEvent) => {
-      if (event.message?.includes("ResizeObserver loop")) {
-        event.stopImmediatePropagation();
-      }
-    };
-    window.addEventListener("error", swallow);
-    return () => window.removeEventListener("error", swallow);
-  }, []);
   useEffect(() => {
     const dismiss = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
