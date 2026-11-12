@@ -27,11 +27,15 @@ const navigation = [
 const subnav = ["Hosts", "Processes", "Kubernetes", "Network Devices", "Network Path", "IP SLA", "NCM", "Resources", "Reports"];
 const subnavHref: Record<string, string> = { "Network Path": "/network-path", "IP SLA": "/ip-sla", NCM: "/ncm" };
 
-const tabs: { id: TabId; label: string; icon: typeof Search }[] = [
+// Compliance is hidden for now; flip to true to bring back the tab and its dashboard stats.
+const SHOW_COMPLIANCE = false;
+
+const allTabs: { id: TabId; label: string; icon: typeof Search }[] = [
   { id: "backup", label: "Overview", icon: DatabaseBackup },
   { id: "compare", label: "Compare & Rollback", icon: GitCompare },
   { id: "compliance", label: "Compliance", icon: ShieldCheck },
 ];
+const tabs = allTabs.filter(item => SHOW_COMPLIANCE || item.id !== "compliance");
 
 export function NcmDashboard() {
   const [showChrome, setShowChrome] = useState(true);
@@ -183,12 +187,15 @@ export function NcmDashboard() {
     setTab("compare");
   };
 
+  const complianceStats: { label: string; value: string; open: () => void; tone?: string }[] = [
+    { label: "Compliance score", value: `${compliance.score}%`, open: () => setTab("compliance") },
+    { label: "Open violations", value: String(compliance.violations.length), open: () => setTab("compliance"), tone: compliance.violations.length ? "bad" : "" },
+  ];
   const stats: { label: string; value: string; open: () => void; tone?: string }[] = [
     { label: "Managed devices", value: String(devices.length), open: () => { setTab("backup"); setBackupStatus("all"); } },
     { label: "Backed up in 24 h", value: `${backedUp}/${devices.length}`, open: () => { setTab("backup"); setBackupStatus("Success"); } },
     { label: "Backup failures", value: String(failedBackups), open: () => { setTab("backup"); setBackupStatus("Failed"); }, tone: failedBackups ? "bad" : "" },
-    { label: "Compliance score", value: `${compliance.score}%`, open: () => setTab("compliance") },
-    { label: "Open violations", value: String(compliance.violations.length), open: () => setTab("compliance"), tone: compliance.violations.length ? "bad" : "" },
+    ...(SHOW_COMPLIANCE ? complianceStats : []),
     { label: "Unacknowledged changes", value: String(openAlerts), open: showChangeLog, tone: openAlerts ? "bad" : "" },
   ];
 
@@ -225,7 +232,7 @@ export function NcmDashboard() {
           <div className="sla-module-header">
             <button type="button" role="switch" aria-checked={showChrome} aria-label="Show top navigation and left menu" title={showChrome ? "Hide navigation" : "Show navigation"} className={`np-chrome-switch${showChrome ? " on" : ""}`} onClick={() => setShowChrome(value => !value)}><span /></button>
             <h1>NCM</h1>
-            <span className="sla-range-label">Network Configuration Manager · multi-vendor configuration, compliance and change management</span>
+            <span className="sla-range-label">{`Network Configuration Manager · multi-vendor configuration${SHOW_COMPLIANCE ? ", compliance" : ""} and change management`}</span>
             <div className="sla-header-actions"><span className="sla-range-label">Last discovery {formatTime(NOW)}</span></div>
           </div>
           <div className="sla-content">
@@ -258,7 +265,7 @@ export function NcmDashboard() {
                 </>
               )}
               {tab === "compare" && <NcmCompare key={focus.stamp} devices={devices} versions={versions} focus={focus} onRollback={rollback} />}
-              {tab === "compliance" && (
+              {SHOW_COMPLIANCE && tab === "compliance" && (
                 <NcmCompliance
                   total={devices.length} rules={rules} policies={compliance.policies} violations={compliance.violations}
                   onAddRule={addRule} onRemoveRule={removeRule}
