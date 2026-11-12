@@ -11,8 +11,7 @@ import type { BackupInfo, ConfigVersion, Job } from "@/lib/ncm-data";
 import { NcmBackups } from "@/components/ncm-backups";
 import { NcmCompare, type CompareFocus } from "@/components/ncm-compare";
 import { NcmCompliance } from "@/components/ncm-compliance";
-import { NcmAutomation } from "@/components/ncm-automation";
-import { NcmChanges, type AlertConfig, type ChangeEvent } from "@/components/ncm-changes";
+import type { AlertConfig, ChangeEvent } from "@/components/ncm-changes";
 
 type TabId = "backup" | "compare" | "compliance";
 
@@ -43,7 +42,7 @@ export function NcmDashboard() {
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [alerts, setAlerts] = useState<AlertConfig>({ enabled: true, recipients: "netops@doop.example, secops@doop.example" });
   const [acked, setAcked] = useState<Record<string, boolean>>({});
-  const [unsent, setUnsent] = useState<Record<string, boolean>>({});
+  const [backupStatus, setBackupStatus] = useState("all");
   const [focus, setFocus] = useState<CompareFocus>({ device: devices[0].name, stamp: 0 });
 
   const clock = useRef(NOW);
@@ -145,16 +144,16 @@ export function NcmDashboard() {
     if (!candidates.length) { setNotice("All devices already contain an unauthorized change"); return; }
     const target = candidates[simulated.current++ % candidates.length];
     const lines = latestOf(versions[target.name]).lines.map(line => (line.startsWith(" transport input") ? " transport input ssh telnet" : line));
-    const key = `${target.name}-v${versions[target.name].length + 1}`;
     setVersions(previous => ({ ...previous, [target.name]: appendVersion(previous[target.name], "Out-of-band", "No change ticket", lines, "unknown (console)") }));
-    if (alerts.enabled) setNotice(`Unauthorized change detected on ${target.name}. Alert emailed to ${alerts.recipients}.`);
-    else { setUnsent(previous => ({ ...previous, [key]: true })); setNotice(`Unauthorized change detected on ${target.name}. Email alerts are off, no mail sent.`); }
+    setNotice(alerts.enabled
+      ? `Unauthorized change detected on ${target.name}. Alert emailed to ${alerts.recipients}.`
+      : `Unauthorized change detected on ${target.name}. Email alerts are off, no mail sent.`);
     showChangeLog();
   };
 
   const showChangeLog = () => {
     setTab("backup");
-    later(() => document.getElementById("ncm-changes")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    setBackupStatus("changed");
   };
 
   const openCompare = (device: string, to?: number) => {
@@ -163,9 +162,9 @@ export function NcmDashboard() {
   };
 
   const stats: { label: string; value: string; open: () => void; tone?: string }[] = [
-    { label: "Managed devices", value: String(devices.length), open: () => setTab("backup") },
-    { label: "Backed up in 24 h", value: `${backedUp}/${devices.length}`, open: () => setTab("backup") },
-    { label: "Backup failures", value: String(failedBackups), open: () => setTab("backup"), tone: failedBackups ? "bad" : "" },
+    { label: "Managed devices", value: String(devices.length), open: () => { setTab("backup"); setBackupStatus("all"); } },
+    { label: "Backed up in 24 h", value: `${backedUp}/${devices.length}`, open: () => { setTab("backup"); setBackupStatus("Success"); } },
+    { label: "Backup failures", value: String(failedBackups), open: () => { setTab("backup"); setBackupStatus("Failed"); }, tone: failedBackups ? "bad" : "" },
     { label: "Compliance score", value: `${compliance.score}%`, open: () => setTab("compliance") },
     { label: "Open violations", value: String(compliance.violations.length), open: () => setTab("compliance"), tone: compliance.violations.length ? "bad" : "" },
     { label: "Unacknowledged changes", value: String(openAlerts), open: showChangeLog, tone: openAlerts ? "bad" : "" },
@@ -228,15 +227,12 @@ export function NcmDashboard() {
               {tab === "backup" && (
                 <>
                   <NcmBackups
-                    devices={devices} backups={backups} versions={versions} events={events} acked={acked} now={clock.current}
-                    onBackup={runBackups} onCompare={openCompare} onDeploy={deployConfig} onShowChanges={showChangeLog}
+                    devices={devices} backups={backups} versions={versions} events={events} acked={acked} jobs={jobs} alerts={alerts}
+                    status={backupStatus} now={clock.current}
+                    onStatus={setBackupStatus} onBackup={runBackups} onCompare={openCompare} onDeploy={deployConfig} onRunScript={runJob}
+                    onAck={keys => setAcked(previous => ({ ...previous, ...Object.fromEntries(keys.map(key => [key, true])) }))}
+                    onAlerts={setAlerts} onSimulate={simulateChange}
                   />
-                  <NcmChanges
-                    events={events} alerts={alerts} acked={acked} unsent={unsent}
-                    onAlerts={setAlerts} onAck={key => setAcked(previous => ({ ...previous, [key]: true }))}
-                    onViewDiff={openCompare} onSimulate={simulateChange}
-                  />
-                  <NcmAutomation devices={devices} jobs={jobs} onRun={runJob} />
                 </>
               )}
               {tab === "compare" && <NcmCompare key={focus.stamp} devices={devices} versions={versions} focus={focus} onRollback={rollback} />}

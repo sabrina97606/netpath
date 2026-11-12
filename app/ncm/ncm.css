@@ -171,3 +171,11 @@
 .ncm-stacked { margin-top: 12px; }
 .ncm-app .ncm-flag { color: #e05a60; font-weight: 600; }
 .ncm-dot { width: 6px; height: 6px; border-radius: 50%; background: #e05a60; display: inline-block; }
+
+.ncm-bulk-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 8px 12px; margin-bottom: 8px; background: #ecf5ff; border: 1px solid #d9ecff; border-radius: 2px; font-size: 14px; color: #303133; }
+.ncm-bulk-bar .sla-secondary, .ncm-bulk-bar .ncm-primary { display: inline-flex; align-items: center; gap: 6px; }
+.ncm-select-col { width: 36px; padding-right: 0; }
+.ncm-select-col input { width: 14px; height: 14px; accent-color: #409eff; vertical-align: middle; }
+.ncm-config-dialog .ncm-switch-row, .ncm-config-dialog .ncm-field { margin: 4px 0; }
+.ncm-config-dialog .ncm-field input { flex: 1; height: 28px; padding: 0 8px; border: 1px solid #dcdfe6; border-radius: 2px; }
+.sla-filters .sla-secondary { display: inline-flex; align-items: center; gap: 6px; }

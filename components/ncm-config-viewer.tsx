@@ -6,21 +6,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { CmdbDevice } from "@/lib/cmdb";
 import { RULES, diffStats, formatTime, type ConfigVersion } from "@/lib/ncm-data";
 
+export type Mode = "config" | "history" | "edit";
+
 type Props = {
   device: CmdbDevice | null;
+  initialMode?: Mode;
   versions: ConfigVersion[];
   onClose: () => void;
   onCompare: (device: string, to?: number) => void;
   onDeploy: (device: string, lines: string[], ref: string) => boolean;
 };
 
-type Mode = "config" | "history" | "edit";
-
-export function NcmConfigViewer({ device, versions, onClose, onCompare, onDeploy }: Props) {
+export function NcmConfigViewer({ device, initialMode = "config", versions, onClose, onCompare, onDeploy }: Props) {
   return (
     <Dialog open={!!device} onOpenChange={open => !open && onClose()}>
       <DialogContent className="ncm-config-dialog sm:max-w-3xl">
-        {device && <Workspace key={device.name} device={device} versions={versions} onCompare={onCompare} onDeploy={onDeploy} onClose={onClose} />}
+        {device && <Workspace key={`${device.name}-${initialMode}`} device={device} initialMode={initialMode} versions={versions} onCompare={onCompare} onDeploy={onDeploy} onClose={onClose} />}
       </DialogContent>
     </Dialog>
   );
@@ -32,9 +33,9 @@ const modes: { id: Mode; label: string }[] = [
   { id: "edit", label: "Edit & deploy" },
 ];
 
-function Workspace({ device, versions, onCompare, onDeploy, onClose }: Omit<Props, "device"> & { device: CmdbDevice }) {
+function Workspace({ device, initialMode = "config", versions, onCompare, onDeploy, onClose }: Omit<Props, "device"> & { device: CmdbDevice }) {
   const latest = versions[versions.length - 1];
-  const [mode, setMode] = useState<Mode>("config");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [selected, setSelected] = useState(latest.number);
   const [copied, setCopied] = useState(false);
   const version = versions.find(item => item.number === selected) ?? latest;
