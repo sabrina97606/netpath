@@ -15,6 +15,7 @@ export type ViewConfig = {
   view: string;
   groupBy: string;
   range: string;
+  ranges: string;
 };
 
 export const defaultViewConfig: ViewConfig = {
@@ -28,6 +29,7 @@ export const defaultViewConfig: ViewConfig = {
   view: "Grouped Tests",
   groupBy: "source",
   range: "Past 4 Hours",
+  ranges: "",
 };
 
 type SavedView = {
@@ -53,6 +55,12 @@ const describe = (config: ViewConfig, noFilters: string) => {
   if (config.protocol !== "All") parts.push(`protocol:${config.protocol}`);
   if (config.testId !== "All") parts.push(`test_id:${config.testId}`);
   if (config.status !== "All Tests") parts.push(`status:${config.status}`);
+  if (config.ranges) {
+    const entries = JSON.parse(config.ranges) as Record<string, [number, number]>;
+    Object.entries(entries).forEach(([field, [low, high]]) =>
+      parts.push(`${field.toLowerCase().replace(/ /g, "_")}:${low}-${high}`),
+    );
+  }
   if (config.groupBy !== "source") parts.push(`group_by:${config.groupBy}`);
   return parts.length ? parts.join(" ") : noFilters;
 };

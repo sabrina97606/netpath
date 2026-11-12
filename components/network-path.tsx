@@ -48,10 +48,12 @@ import {
   RefreshCw,
   Search,
   Server,
+  FilterX,
   Settings,
   Workflow,
   X,
 } from "lucide-react";
+import { RangeFacet, type Range } from "@/components/network-path-range-facet";
 
 type Test = {
   id: string;
@@ -68,6 +70,11 @@ type Test = {
 };
 const statusOf = (test: Test) =>
   test.noData ? "No Data" : test.reach > 0 ? "Reachable" : "Unreachable";
+const ttlOf = (test: Test) => 4 + (parseInt(test.id.slice(0, 2), 16) % 20);
+const numericValue: Record<string, (test: Test) => number | null> = {
+  "Destination Port": (test) => (test.port ? Number(test.port) : null),
+  "Destination TTL": ttlOf,
+};
 const ip = (name: string) => cmdbDevice(name).ip;
 const initialTests: Test[] = [
   { id: "70de870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "TCP", port: "443", reach: 99.8, rtt: 23, site: "sh-dc1", env: "production" },
@@ -277,6 +284,7 @@ export function NetworkPath() {
   const [source, setSource] = useState("All");
   const [destination, setDestination] = useState("All");
   const [port, setPort] = useState("All");
+  const [ranges, setRanges] = useState<Record<string, Range>>({});
   const [protocol, setProtocol] = useState("All");
   const [testId, setTestId] = useState("All");
   const [status, setStatus] = useState("All Tests");
@@ -361,9 +369,36 @@ export function NetworkPath() {
       previousFocus?.focus();
     };
   }, [drawer]);
+  const numericFacets: Record<string, Range> = Object.fromEntries(
+    Object.entries(numericValue).map(([field, read]) => {
+      const values = tests
+        .map(read)
+        .filter((value): value is number => value !== null && Number.isFinite(value));
+      return [
+        field,
+        values.length ? [Math.min(...values), Math.max(...values)] : [0, 0],
+      ];
+    }),
+  );
+  const setFacetRange = (field: string, next: Range) => {
+    const [min, max] = numericFacets[field];
+    setRanges((current) => {
+      const { [field]: _removed, ...rest } = current;
+      return next[0] <= min && next[1] >= max ? rest : { ...rest, [field]: next };
+    });
+    resetPage();
+  };
+  const clearFacetRange = (field: string) => {
+    setRanges(({ [field]: _removed, ...rest }) => rest);
+    resetPage();
+  };
   const filtered = tests
     .filter(
       (test) =>
+        Object.entries(ranges).every(([field, [low, high]]) => {
+          const value = numericValue[field]?.(test);
+          return value != null && value >= low && value <= high;
+        }) &&
         (source === "All" || test.source === source) &&
         (destination === "All" || test.destination === destination) &&
         (port === "All" || (test.port || "-") === port) &&
@@ -441,6 +476,15 @@ export function NetworkPath() {
     view,
     groupBy,
     range,
+    ranges: Object.keys(ranges).length
+      ? JSON.stringify(
+          Object.fromEntries(
+            Object.keys(ranges)
+              .sort()
+              .map((field) => [field, ranges[field]]),
+          ),
+        )
+      : "",
   };
   const applyConfig = (config: ViewConfig) => {
     setQuery(config.query);
@@ -453,6 +497,7 @@ export function NetworkPath() {
     setView(config.view);
     setGroupBy(config.groupBy);
     setRange(config.range);
+    setRanges(config.ranges ? JSON.parse(config.ranges) : {});
     resetPage();
   };
   const restoreView = () => {
@@ -920,6 +965,7 @@ export function NetworkPath() {
                     setSource("All");
                     setDestination("All");
                     setPort("All");
+                    setRanges({});
                     setProtocol("All");
                     setTestId("All");
                     setStatus("All Tests");
@@ -1042,7 +1088,10 @@ export function NetworkPath() {
                               .includes(facetQuery.toLowerCase()),
                           )
                           .map((field) => (
-                            <div key={field}>
+                            <div
+                              key={field}
+                              className={`np-facet-item${ranges[field] ? " applied" : ""}`}
+                            >
                               <button
                                 className="np-facet-field"
                                 data-facet={field}
@@ -1059,7 +1108,28 @@ export function NetworkPath() {
                                 )}
                                 <span>{t(field)}</span>
                               </button>
-                              {openFacet === field && (
+                              {ranges[field] && (
+                                <button
+                                  type="button"
+                                  className="np-facet-clear"
+                                  title={t("Clear filter")}
+                                  aria-label={`${t("Clear filter")}: ${t(field)}`}
+                                  onClick={() => clearFacetRange(field)}
+                                >
+                                  <FilterX size={14} />
+                                </button>
+                              )}
+                              {openFacet === field && numericFacets[field] && (
+                                <div className="np-facet-values np-facet-range">
+                                  <RangeFacet
+                                    label={field}
+                                    bounds={numericFacets[field]}
+                                    value={ranges[field] ?? numericFacets[field]}
+                                    onChange={(next) => setFacetRange(field, next)}
+                                  />
+                                </div>
+                              )}
+                              {openFacet === field && !numericFacets[field] && (
                                 <div className="np-facet-values">
                                   {facetValues(field).map((value) => (
                                     <button
@@ -1308,6 +1378,7 @@ export function NetworkPath() {
                             setSource("All");
                             setDestination("All");
                             setPort("All");
+                            setRanges({});
                             setProtocol("All");
                             setTestId("All");
                             setStatus("All Tests");

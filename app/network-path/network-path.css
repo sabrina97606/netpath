@@ -615,9 +615,137 @@
   flex-shrink: 0;
   color: #9aa4af;
 }
+.np-facet-item {
+  position: relative;
+}
+.np-facet-item.applied > .np-facet-field {
+  color: #409eff;
+  padding-right: 32px;
+}
+.np-facet-clear {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #b3d8ff;
+  border-radius: 3px;
+  background: #ecf5ff;
+  color: #409eff;
+  cursor: pointer;
+}
+.np-facet-clear:hover {
+  background: #409eff;
+  color: #fff;
+}
 .np-facet-values {
   background: #fafbfc;
   padding: 3px 0 4px 18px;
+}
+.np-facet-values.np-facet-range {
+  padding: 8px 12px 12px 18px;
+}
+.np-range-inputs {
+  display: flex;
+  gap: 8px;
+}
+.np-range-inputs label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #606266;
+}
+.np-range-inputs input {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #dcdfe6;
+  border-radius: 3px;
+  background: #fff;
+  font-size: 12px;
+  color: #303133;
+  text-align: right;
+}
+.np-range-inputs input:focus {
+  outline: none;
+  border-color: #409eff;
+}
+.np-range-slider {
+  position: relative;
+  height: 20px;
+  margin: 8px 6px 0;
+}
+.np-range-track,
+.np-range-fill {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 1px;
+}
+.np-range-track {
+  left: 0;
+  right: 0;
+  background: #dcdfe6;
+}
+.np-range-fill {
+  background: #409eff;
+}
+.np-range-slider input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.np-range-slider input[type="range"]::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 20px;
+}
+.np-range-slider input[type="range"]::-moz-range-track {
+  background: transparent;
+  height: 20px;
+}
+.np-range-slider input[type="range"]::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: #409eff;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.np-range-slider input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #409eff;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.np-range-slider input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #b3d8ff;
+  outline-offset: 1px;
 }
 .np-facet-values button {
   display: flex;
