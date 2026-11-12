@@ -337,7 +337,7 @@ export function IpSlaDashboard() {
       {showChrome && <aside className="np-nav" aria-label="Main navigation">
         {navigation.map(item => <div key={item.label}>
           <button className={item.label === "Infrastructure" ? "np-nav-current" : ""} onClick={() => item.label !== "Infrastructure" && setNotice(`${item.label} is not available in this prototype`)}><item.icon size={13} /><span>{item.label}</span><ChevronDown size={11} /></button>
-          {item.label === "Infrastructure" && <div className="np-subnav">{["Hosts", "Processes", "Kubernetes", "Network Devices", "Network Path", "IP SLA", "Resources", "Reports"].map(label => label === "Network Path" || label === "IP SLA" ? <Link key={label} className={label === "IP SLA" ? "active" : ""} href={label === "IP SLA" ? "/ip-sla" : "/network-path"} aria-current={label === "IP SLA" ? "page" : undefined}>{label}</Link> : <button key={label} onClick={() => setNotice(`${label} is not available in this prototype`)}>{label}</button>)}</div>}
+          {item.label === "Infrastructure" && <div className="np-subnav">{["Hosts", "Processes", "Kubernetes", "Network Devices", "Network Path", "IP SLA", "NCM", "Resources", "Reports"].map(label => label === "Network Path" || label === "IP SLA" || label === "NCM" ? <Link key={label} className={label === "IP SLA" ? "active" : ""} href={label === "IP SLA" ? "/ip-sla" : label === "NCM" ? "/ncm" : "/network-path"} aria-current={label === "IP SLA" ? "page" : undefined}>{label}</Link> : <button key={label} onClick={() => setNotice(`${label} is not available in this prototype`)}>{label}</button>)}</div>}
         </div>)}
         <footer>7.1.0 <Layers size={12} /></footer>
       </aside>}
