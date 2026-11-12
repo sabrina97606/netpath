@@ -125,3 +125,6 @@
 .ncm-config-code { margin: 0; max-height: 56vh; overflow: auto; padding: 8px 0; border: 1px solid #ebeef1; background: #fafbfc; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; line-height: 22px; color: #303133; }
 .ncm-config-code span { display: block; padding-right: 12px; white-space: pre; }
 .ncm-config-code i { display: inline-block; width: 44px; margin-right: 12px; padding-right: 8px; text-align: right; font-style: normal; color: #b3bbc6; user-select: none; }
+.ncm-stacked { margin-top: 12px; }
+.ncm-app .ncm-flag { color: #e05a60; font-weight: 600; }
+.ncm-dot { width: 6px; height: 6px; border-radius: 50%; background: #e05a60; display: inline-block; }

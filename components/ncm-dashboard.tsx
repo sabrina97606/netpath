@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  Activity, ArrowDownUp, Bell, BellRing, Box, ChevronDown, Cloud, DatabaseBackup, Database, GitCompare,
+  Activity, ArrowDownUp, Bell, Box, ChevronDown, Cloud, DatabaseBackup, Database, GitCompare,
   Home, Layers, Map, Network, Search, Settings, ShieldCheck, TerminalSquare, Workflow, X,
 } from "lucide-react";
 import { devices, NOW, SCRIPTS, RULES, computeCompliance, diffStats, formatTime, initialBackup, initialJobs, initialVersions, latestOf, ruleById } from "@/lib/ncm-data";
@@ -14,7 +14,7 @@ import { NcmCompliance } from "@/components/ncm-compliance";
 import { NcmAutomation } from "@/components/ncm-automation";
 import { NcmChanges, type AlertConfig, type ChangeEvent } from "@/components/ncm-changes";
 
-type TabId = "backup" | "compare" | "compliance" | "automation" | "changes";
+type TabId = "backup" | "compare" | "compliance" | "automation";
 
 const navigation = [
   { label: "Event", icon: Activity }, { label: "Inspection", icon: Layers },
@@ -29,11 +29,10 @@ const subnav = ["Hosts", "Processes", "Kubernetes", "Network Devices", "Network 
 const subnavHref: Record<string, string> = { "Network Path": "/network-path", "IP SLA": "/ip-sla", NCM: "/ncm" };
 
 const tabs: { id: TabId; label: string; icon: typeof Search }[] = [
-  { id: "backup", label: "Config Backup", icon: DatabaseBackup },
+  { id: "backup", label: "Backup & Change Detection", icon: DatabaseBackup },
   { id: "compare", label: "Compare & Rollback", icon: GitCompare },
   { id: "compliance", label: "Compliance", icon: ShieldCheck },
   { id: "automation", label: "Bulk Automation", icon: TerminalSquare },
-  { id: "changes", label: "Change Detection", icon: BellRing },
 ];
 
 export function NcmDashboard() {
@@ -140,7 +139,12 @@ export function NcmDashboard() {
     setVersions(previous => ({ ...previous, [target.name]: appendVersion(previous[target.name], "Out-of-band", "No change ticket", lines, "unknown (console)") }));
     if (alerts.enabled) setNotice(`Unauthorized change detected on ${target.name}. Alert emailed to ${alerts.recipients}.`);
     else { setUnsent(previous => ({ ...previous, [key]: true })); setNotice(`Unauthorized change detected on ${target.name}. Email alerts are off, no mail sent.`); }
-    setTab("changes");
+    showChangeLog();
+  };
+
+  const showChangeLog = () => {
+    setTab("backup");
+    later(() => document.getElementById("ncm-changes")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   };
 
   const openCompare = (device: string, to?: number) => {
@@ -148,13 +152,13 @@ export function NcmDashboard() {
     setTab("compare");
   };
 
-  const stats: { label: string; value: string; tab: TabId; tone?: string }[] = [
-    { label: "Managed devices", value: String(devices.length), tab: "backup" },
-    { label: "Backed up in 24 h", value: `${backedUp}/${devices.length}`, tab: "backup" },
-    { label: "Backup failures", value: String(failedBackups), tab: "backup", tone: failedBackups ? "bad" : "" },
-    { label: "Compliance score", value: `${compliance.score}%`, tab: "compliance" },
-    { label: "Open violations", value: String(compliance.violations.length), tab: "compliance", tone: compliance.violations.length ? "bad" : "" },
-    { label: "Unacknowledged changes", value: String(openAlerts), tab: "changes", tone: openAlerts ? "bad" : "" },
+  const stats: { label: string; value: string; open: () => void; tone?: string }[] = [
+    { label: "Managed devices", value: String(devices.length), open: () => setTab("backup") },
+    { label: "Backed up in 24 h", value: `${backedUp}/${devices.length}`, open: () => setTab("backup") },
+    { label: "Backup failures", value: String(failedBackups), open: () => setTab("backup"), tone: failedBackups ? "bad" : "" },
+    { label: "Compliance score", value: `${compliance.score}%`, open: () => setTab("compliance") },
+    { label: "Open violations", value: String(compliance.violations.length), open: () => setTab("compliance"), tone: compliance.violations.length ? "bad" : "" },
+    { label: "Unacknowledged changes", value: String(openAlerts), open: showChangeLog, tone: openAlerts ? "bad" : "" },
   ];
 
   return (
@@ -194,9 +198,9 @@ export function NcmDashboard() {
             <div className="sla-header-actions"><span className="sla-range-label">Last discovery {formatTime(NOW)}</span></div>
           </div>
           <div className="sla-content">
-            <div className="sla-summary ncm-summary">
+            <div className="sla-summary ncm-summary" role="group" aria-label="Overview">
               {stats.map(stat => (
-                <button key={stat.label} type="button" className={`sla-stat ncm-stat ${stat.tone ?? ""}`} onClick={() => setTab(stat.tab)}>
+                <button key={stat.label} type="button" className={`sla-stat ncm-stat ${stat.tone ?? ""}`} onClick={stat.open}>
                   <span>{stat.label}</span><strong>{stat.value}</strong>
                 </button>
               ))}
@@ -206,12 +210,24 @@ export function NcmDashboard() {
                 <button key={item.id} type="button" role="tab" id={`ncm-tab-${item.id}`} aria-selected={tab === item.id} aria-controls="ncm-tabpanel" onClick={() => setTab(item.id)}>
                   <item.icon size={14} />{item.label}
                   {item.id === "compliance" && compliance.violations.length > 0 && <em>{compliance.violations.length}</em>}
-                  {item.id === "changes" && openAlerts > 0 && <em>{openAlerts}</em>}
+                  {item.id === "backup" && openAlerts > 0 && <em>{openAlerts}</em>}
                 </button>
               ))}
             </div>
             <div id="ncm-tabpanel" role="tabpanel" aria-labelledby={`ncm-tab-${tab}`}>
-              {tab === "backup" && <NcmBackups devices={devices} backups={backups} versions={versions} now={clock.current} onBackup={runBackups} onCompare={name => openCompare(name)} />}
+              {tab === "backup" && (
+                <>
+                  <NcmBackups
+                    devices={devices} backups={backups} versions={versions} events={events} acked={acked} now={clock.current}
+                    onBackup={runBackups} onCompare={name => openCompare(name)} onShowChanges={showChangeLog}
+                  />
+                  <NcmChanges
+                    events={events} alerts={alerts} acked={acked} unsent={unsent}
+                    onAlerts={setAlerts} onAck={key => setAcked(previous => ({ ...previous, [key]: true }))}
+                    onViewDiff={openCompare} onSimulate={simulateChange}
+                  />
+                </>
+              )}
               {tab === "compare" && <NcmCompare key={focus.stamp} devices={devices} versions={versions} focus={focus} onRollback={rollback} />}
               {tab === "compliance" && (
                 <NcmCompliance
@@ -221,13 +237,6 @@ export function NcmDashboard() {
                 />
               )}
               {tab === "automation" && <NcmAutomation devices={devices} jobs={jobs} onRun={runJob} />}
-              {tab === "changes" && (
-                <NcmChanges
-                  events={events} alerts={alerts} acked={acked} unsent={unsent}
-                  onAlerts={setAlerts} onAck={key => setAcked(previous => ({ ...previous, [key]: true }))}
-                  onViewDiff={openCompare} onSimulate={simulateChange}
-                />
-              )}
             </div>
           </div>
         </main>

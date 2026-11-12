@@ -6,6 +6,7 @@ import { NcmConfigViewer } from "@/components/ncm-config-viewer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CmdbDevice } from "@/lib/cmdb";
 import { formatTime, relativeTime, siteOf, type BackupInfo, type ConfigVersion } from "@/lib/ncm-data";
+import type { ChangeEvent } from "@/components/ncm-changes";
 
 const statusColor = { Success: "#25a77a", Failed: "#e05a60", Running: "#409eff" } as const;
 
@@ -13,23 +14,35 @@ type Props = {
   devices: CmdbDevice[];
   backups: Record<string, BackupInfo>;
   versions: Record<string, ConfigVersion[]>;
+  events: ChangeEvent[];
+  acked: Record<string, boolean>;
   now: number;
   onBackup: (names: string[]) => void;
   onCompare: (name: string) => void;
+  onShowChanges: () => void;
 };
 
-export function NcmBackups({ devices, backups, versions, now, onBackup, onCompare }: Props) {
+export function NcmBackups({ devices, backups, versions, events, acked, now, onBackup, onCompare, onShowChanges }: Props) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [viewing, setViewing] = useState<CmdbDevice | null>(null);
 
+  const lastChange = useMemo(() => {
+    const latest: Record<string, ChangeEvent> = {};
+    for (const event of events) if (!latest[event.device]) latest[event.device] = event;
+    return latest;
+  }, [events]);
+  const flagged = (name: string) => events.some(event => event.device === name && !event.authorized && !acked[event.key]);
+
   const rows = useMemo(() => {
     const text = query.trim().toLowerCase();
     return devices.filter(item => {
-      if (status !== "all" && backups[item.name].status !== status) return false;
+      if (status === "changed") { if (!flagged(item.name)) return false; }
+      else if (status !== "all" && backups[item.name].status !== status) return false;
       return !text || `${item.name} ${item.ip} ${item.vendor} ${siteOf(item.name)}`.toLowerCase().includes(text);
     });
-  }, [devices, backups, query, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [devices, backups, events, acked, query, status]);
 
   const failed = devices.filter(item => backups[item.name].status === "Failed").map(item => item.name);
 
@@ -55,6 +68,7 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
           <option value="Success">Success</option>
           <option value="Failed">Failed</option>
           <option value="Running">Running</option>
+          <option value="changed">Unauthorized change</option>
         </select>
         <span className="sla-count">{rows.length} of {devices.length} devices</span>
         <div className="sla-push-right ncm-actions">
@@ -68,7 +82,7 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
             <TableRow>
               <TableHead>Device</TableHead><TableHead>Vendor / model</TableHead><TableHead>Site</TableHead>
               <TableHead>Protocol</TableHead><TableHead>Schedule</TableHead><TableHead>Last backup</TableHead>
-              <TableHead>Status</TableHead><TableHead>Versions</TableHead><TableHead className="ncm-sticky-end">Actions</TableHead>
+              <TableHead>Status</TableHead><TableHead>Versions</TableHead><TableHead>Last change</TableHead><TableHead className="ncm-sticky-end">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,6 +101,16 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
                     {backup.error && <small className="ncm-error">{backup.error}</small>}
                   </TableCell>
                   <TableCell>v{versions[item.name].length}</TableCell>
+                  <TableCell>
+                    {lastChange[item.name] ? (
+                      <>
+                        {flagged(item.name)
+                          ? <button type="button" className="ncm-link ncm-flag" onClick={onShowChanges}><span className="ncm-dot" />Unauthorized</button>
+                          : <span className="sla-badge"><span style={{ background: "#25a77a" }} />{lastChange[item.name].authorized ? "Authorized" : "Acknowledged"}</span>}
+                        <small>{formatTime(lastChange[item.name].at)}</small>
+                      </>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell className="ncm-sticky-end">
                     <div className="ncm-actions nowrap">
                       <button type="button" className="ncm-link" disabled={backup.status === "Running"} onClick={() => onBackup([item.name])}>Back up now</button>

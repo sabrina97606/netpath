@@ -36,7 +36,7 @@ export function NcmChanges({ events, alerts, acked, unsent, onAlerts, onAck, onV
   const shown = events.filter(event => filter === "all" || (filter === "unauthorized" ? !event.authorized : event.authorized));
 
   return (
-    <section className="sla-panel ncm-panel">
+    <section id="ncm-changes" className="sla-panel ncm-panel ncm-stacked">
       <div className="sla-panel-title">
         <h3><BellRing size={15} />Real-time change detection</h3>
         <span>Detects syslog config-change messages and verifies the running-config hash every 5 minutes</span>
