@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DatabaseBackup, FileDiff, RefreshCw, Search } from "lucide-react";
+import { DatabaseBackup, FileDiff, FileText, RefreshCw, Search } from "lucide-react";
+import { NcmConfigViewer } from "@/components/ncm-config-viewer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CmdbDevice } from "@/lib/cmdb";
 import { formatTime, relativeTime, siteOf, type BackupInfo, type ConfigVersion } from "@/lib/ncm-data";
@@ -20,6 +21,7 @@ type Props = {
 export function NcmBackups({ devices, backups, versions, now, onBackup, onCompare }: Props) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
+  const [viewing, setViewing] = useState<CmdbDevice | null>(null);
 
   const rows = useMemo(() => {
     const text = query.trim().toLowerCase();
@@ -88,6 +90,7 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
                   <TableCell>
                     <div className="ncm-actions">
                       <button type="button" className="ncm-link" disabled={backup.status === "Running"} onClick={() => onBackup([item.name])}>Back up now</button>
+                      <button type="button" className="ncm-link" onClick={() => setViewing(item)}><FileText size={12} />View config</button>
                       <button type="button" className="ncm-link" onClick={() => onCompare(item.name)}><FileDiff size={12} />Compare</button>
                     </div>
                   </TableCell>
@@ -98,6 +101,7 @@ export function NcmBackups({ devices, backups, versions, now, onBackup, onCompar
         </Table>
         {!rows.length && <div className="sla-empty">No devices match the current filters</div>}
       </div>
+      <NcmConfigViewer device={viewing} versions={viewing ? versions[viewing.name] : []} onClose={() => setViewing(null)} />
     </section>
   );
 }

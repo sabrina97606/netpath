@@ -108,3 +108,16 @@
   .ncm-target-list { grid-template-columns: 1fr; }
   .ncm-app .ncm-history button { grid-template-columns: 40px 1fr; row-gap: 2px; padding: 6px 12px; }
 }
+
+/* Dialog renders in a portal outside .ncm-app, so these selectors are unscoped. */
+.ncm-config-dialog { gap: 10px; }
+.ncm-config-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.ncm-config-bar label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: #606266; }
+.ncm-config-bar select { height: 28px; max-width: 100%; padding: 0 8px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fff; font-size: 14px; color: #303133; }
+.ncm-config-actions { display: inline-flex; gap: 8px; }
+.ncm-config-actions button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fff; font-size: 14px; color: #303133; }
+.ncm-config-actions button:hover { color: #409eff; border-color: #c6e2ff; }
+.ncm-config-meta { margin: 0; font-size: 13px; color: #909399; }
+.ncm-config-code { margin: 0; max-height: 56vh; overflow: auto; padding: 8px 0; border: 1px solid #ebeef1; background: #fafbfc; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; line-height: 22px; color: #303133; }
+.ncm-config-code span { display: block; padding-right: 12px; white-space: pre; }
+.ncm-config-code i { display: inline-block; width: 44px; margin-right: 12px; padding-right: 8px; text-align: right; font-style: normal; color: #b3bbc6; user-select: none; }
