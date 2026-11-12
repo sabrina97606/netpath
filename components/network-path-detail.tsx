@@ -179,8 +179,12 @@ function ExpandedGroupFrame({ data }: NodeProps<GroupFrameNode>) {
 
 function HopObservation({ data }: { data: HopData }) {
   const { t } = useNpI18n();
+  const showRtt = Boolean(data.stats);
+  const showLoss = data.kind !== "source" && data.kind !== "unknown";
+  if (data.kind === "source" || (!showRtt && !showLoss)) return null;
   return (
     <section className="npd-hop-observation" aria-label={t("Node observations")}>
+      {showRtt && data.stats && (
       <table aria-label={t("RTT statistics")}>
         <caption>{t("RTT latency")}</caption>
         <thead>
@@ -193,21 +197,22 @@ function HopObservation({ data }: { data: HopData }) {
         <tbody>
           <tr>
             {(["latest", "min", "avg", "max"] as const).map((key) => (
-              <td key={key}>{data.stats ? `${data.stats[key]} ms` : "N/A"}</td>
+              <td key={key}>{`${data.stats![key]} ms`}</td>
             ))}
           </tr>
         </tbody>
       </table>
-      <div className="npd-observed-loss">
-        <span>
-          {data.kind === "destination"
-            ? t("End-to-end packet loss")
-            : t("Hop response loss")}
-        </span>
-        <strong>
-          {data.kind === "unknown" ? "N/A" : `${data.packetLoss || 0}%`}
-        </strong>
-      </div>
+      )}
+      {showLoss && (
+        <div className="npd-observed-loss">
+          <span>
+            {data.kind === "destination"
+              ? t("End-to-end packet loss")
+              : t("Hop response loss")}
+          </span>
+          <strong>{`${data.packetLoss || 0}%`}</strong>
+        </div>
+      )}
     </section>
   );
 }
