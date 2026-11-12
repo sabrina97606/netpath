@@ -201,12 +201,6 @@
   padding: 2px 5px;
   font-size: 10px;
 }
-.np-app .npd-issues-toggle {
-  margin-left: auto;
-  font-size: 11px;
-  color: #ae7712;
-  gap: 4px;
-}
 .npd-hop-card.issue-highlighted {
   outline: 3px solid #efb43e;
   outline-offset: 4px;
@@ -253,90 +247,6 @@
 .npd-observed-loss > span {
   color: #7b8996;
 }
-.np-app .npd-node-issue {
-  display: flex;
-  width: 100%;
-  justify-content: flex-start;
-  text-align: left;
-  color: #a77313;
-  background: #fff9e9;
-  padding: 6px;
-  gap: 5px;
-  font-size: 10px;
-  margin-top: 6px;
-}
-.npd-node-issue svg {
-  flex-shrink: 0;
-}
-.npd-issues-panel {
-  flex-shrink: 0;
-  border-top: 1px solid var(--np-border);
-  padding: 9px 14px;
-  background: #fff;
-}
-.npd-issues-panel > header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  margin-bottom: 7px;
-}
-.npd-issues-panel > header > span {
-  color: #8b98a4;
-  font-size: 10px;
-}
-.npd-issues-panel > header > button {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.npd-issues-panel > p {
-  padding: 9px 0;
-  color: #7e8e9c;
-  font-size: 11px;
-}
-.np-app .npd-issue-row {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 8px;
-  text-align: left;
-  border-bottom: 1px solid #edf1f6;
-  font-size: 11px;
-}
-.npd-issue-row > svg {
-  color: #cf961e;
-  flex-shrink: 0;
-}
-.npd-issue-row.critical > svg {
-  color: #e53b59;
-}
-.npd-issue-row > span:first-of-type {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-.npd-issue-row small {
-  color: #8593a0;
-  font-size: 10px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.npd-issue-row > span:last-child {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  color: #3288df;
-  font-size: 10px;
-}
-.np-app .npd-issue-row[aria-pressed="true"] {
-  background: #fff8e6;
-  outline: 1px solid #edc574;
-  outline-offset: -1px;
-}
 .npd-history-heading {
   flex-shrink: 0;
   display: flex;
@@ -381,19 +291,6 @@
   .npd-expanded-groups {
     width: 100%;
     order: 1;
-  }
-  .npd-issues-panel {
-    padding: 8px;
-  }
-  .npd-issues-panel > header {
-    flex-wrap: wrap;
-  }
-  .npd-issues-panel > header > span {
-    order: 1;
-    width: 100%;
-  }
-  .npd-issue-row > span:last-child {
-    max-width: 58px;
   }
   .npd-history-heading {
     padding: 8px 8px 2px;

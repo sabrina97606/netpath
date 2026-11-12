@@ -13,7 +13,6 @@ import { useNpI18n } from "@/lib/network-path-i18n";
 import { cmdbByIp, cmdbByName } from "@/lib/cmdb";
 import {
   buildPathSnapshot,
-  type PathIssue,
   type PathStats,
 } from "@/lib/network-path-model";
 import {
@@ -137,15 +136,7 @@ function ExpandedGroupFrame({ data }: NodeProps<GroupFrameNode>) {
   );
 }
 
-function HopObservation({
-  data,
-  issues,
-  onIssue,
-}: {
-  data: HopData;
-  issues: PathIssue[];
-  onIssue: (id: string) => void;
-}) {
+function HopObservation({ data }: { data: HopData }) {
   const { t } = useNpI18n();
   return (
     <section className="npd-hop-observation" aria-label={t("Node observations")}>
@@ -176,17 +167,6 @@ function HopObservation({
           {data.kind === "unknown" ? "N/A" : `${data.packetLoss || 0}%`}
         </strong>
       </div>
-      {issues.map((issue) => (
-        <button
-          key={issue.id}
-          className="npd-node-issue"
-          onClick={() => onIssue(issue.id)}
-        >
-          <AlertTriangle size={12} />
-          {t(issue.title)}
-          <ChevronRight size={12} />
-        </button>
-      ))}
     </section>
   );
 }
@@ -447,8 +427,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [latencyThreshold, setLatencyThreshold] = useState(7);
   const [nameCopied, setNameCopied] = useState(false);
-  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
-  const [issuesOpen, setIssuesOpen] = useState(false);
   const [hoveredHop, setHoveredHop] = useState<string | null>(null);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { fitView } = useReactFlow();
@@ -515,17 +493,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     hideUnknown,
   );
   const { loss } = snapshot;
-  const activeIssue = snapshot.issues.find(
-    (issue) => issue.id === activeIssueId,
-  );
-  const highlightedEdges = new Set(activeIssue?.edgeIds || []);
-  const highlightedNodes = new Set(activeIssue?.nodeIds || []);
-  snapshot.links
-    .filter((link) => highlightedEdges.has(link.id))
-    .forEach((link) => {
-      highlightedNodes.add(link.from);
-      highlightedNodes.add(link.to);
-    });
   const duration = (rangeMinutes[range] || 240) * 60000;
   const endTime =
     new Date("2026-10-13T10:24:00Z").getTime() + timeOffset * duration;
@@ -600,14 +567,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     setSelectedHop(null);
     setHoveredHop(null);
     setInspectedHop(null);
-    setActiveIssueId(null);
     refit();
-  };
-  const focusIssue = (id: string) => {
-    setActiveIssueId((current) => (current === id ? null : id));
-    setSelectedHop(null);
-    setHoveredHop(null);
-    setIssuesOpen(true);
   };
   const nodes: HopNode[] = snapshot.hops.map((hop) => ({
     id: hop.id,
@@ -629,14 +589,13 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       ).length,
       badge: snapshot.issues.find((issue) => issue.nodeIds.includes(hop.id))
         ?.badge,
-      highlighted: highlightedNodes.has(hop.id),
+      highlighted: false,
       selected: selectedHop === hop.id || inspectedHop === hop.id,
       dimmed: Boolean(
-        (query &&
+        query &&
           !`${hop.label} ${hop.asn}`
             .toLowerCase()
-            .includes(query.toLowerCase())) ||
-        (activeIssue && !highlightedNodes.has(hop.id)),
+            .includes(query.toLowerCase()),
       ),
       onSelect: () => {
         setSelectedHop(hop.id);
@@ -687,8 +646,8 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
         color,
         complete: link.complete,
         packetLoss: link.packetLoss,
-        highlighted: highlightedEdges.has(link.id),
-        dimmed: Boolean(activeIssue && !highlightedEdges.has(link.id)),
+        highlighted: false,
+        dimmed: false,
         width:
           1.5 + (4.5 * Math.log10(Math.max(1, link.count))) / Math.log10(6840),
       },
@@ -741,13 +700,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     [test],
   );
   const renderObservations = (node: HopNode) => (
-    <HopObservation
-      data={node.data}
-      issues={snapshot.issues.filter((issue) =>
-        issue.nodeIds.includes(node.id),
-      )}
-      onIssue={focusIssue}
-    />
+    <HopObservation data={node.data} />
   );
 
   return (
@@ -925,17 +878,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                 ))}
             </div>
           )}
-          <button
-            className="npd-issues-toggle"
-            aria-expanded={issuesOpen}
-            onClick={() => {
-              setIssuesOpen(!issuesOpen);
-              if (issuesOpen) setActiveIssueId(null);
-            }}
-          >
-            <AlertTriangle size={13} />
-            {t("Issues")} ({snapshot.issues.length})
-          </button>
         </div>
       )}
       <div className="npd-body">
@@ -1248,50 +1190,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           </aside>
         )}
       </div>
-      {activeTab === "Path View" && issuesOpen && (
-        <section className="npd-issues-panel" aria-label={t("Path issues")}>
-          <header>
-            <strong>{t("Issues")} ({snapshot.issues.length})</strong>
-            <span>
-              {graphTime} · {t("Observed conditions, not a root-cause verdict")}
-            </span>
-            <button
-              aria-label={t("Close issues")}
-              onClick={() => {
-                setIssuesOpen(false);
-                setActiveIssueId(null);
-              }}
-            >
-              <X size={13} />
-            </button>
-          </header>
-          {snapshot.issues.length === 0 ? (
-            <p>{t("No issues in this snapshot")}</p>
-          ) : (
-            snapshot.issues.map((issue) => (
-              <button
-                key={issue.id}
-                className={`npd-issue-row ${issue.severity}`}
-                aria-pressed={activeIssueId === issue.id}
-                onClick={() => focusIssue(issue.id)}
-              >
-                <AlertTriangle size={15} />
-                <span>
-                  <strong>{t(issue.title)}</strong>
-                  <small>{t(issue.observed)}</small>
-                  <small>
-                    {t(issue.condition)} · {graphTime}
-                  </small>
-                </span>
-                <span>
-                  {t(activeIssueId === issue.id ? "Clear highlight" : "Locate")}
-                  <ChevronRight size={12} />
-                </span>
-              </button>
-            ))
-          )}
-        </section>
-      )}
       {activeTab === "Path View" && (
         <div className="npd-history-heading">
           <strong>{t("Path History")}</strong>
