@@ -38,7 +38,7 @@ const allTabs: { id: TabId; label: string; icon: typeof Search }[] = [
 const tabs = allTabs.filter(item => SHOW_COMPLIANCE || item.id !== "compliance");
 
 export function NcmDashboard() {
-  const [showChrome, setShowChrome] = useState(true);
+  const [showChrome, setShowChrome] = useState(false);
   const [tab, setTab] = useState<TabId>("backup");
   const [notice, setNotice] = useState("");
   const [versions, setVersions] = useState<Record<string, ConfigVersion[]>>(() => Object.fromEntries(devices.map(item => [item.name, initialVersions(item)])));
