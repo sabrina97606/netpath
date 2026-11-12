@@ -205,12 +205,6 @@
   outline: 3px solid #efb43e;
   outline-offset: 4px;
 }
-.npd-node-main .npd-node-warning {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #ad7715;
-}
 .npd-hop-observation {
   font-size: 10px;
   margin-bottom: 10px;

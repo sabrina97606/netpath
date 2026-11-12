@@ -17,7 +17,6 @@ import {
 } from "@/lib/network-path-model";
 import {
   Activity,
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -251,12 +250,6 @@ function HopCard({ data }: NodeProps<HopNode>) {
             <small title={data.subtitle}>{data.subtitle}</small>
           )}
           {data.children && <small>{t(`${data.children} child nodes`)}</small>}
-          {Boolean(data.issueCount) && (
-            <small className="npd-node-warning">
-              <AlertTriangle size={10} />
-              {t(`${data.issueCount} issue${data.issueCount === 1 ? "" : "s"}`)}
-            </small>
-          )}
         </span>
       </button>
       {data.children ? (
