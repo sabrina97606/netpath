@@ -128,7 +128,7 @@ const matchesSearch = (test: Test, keyword: string) => {
     .some((candidate) => candidate.toLowerCase().includes(needle));
 };
 const facetGroups = [
-  { name: "PATH", fields: ["Origin", "Protocol"] },
+  { name: "PATH", fields: ["Protocol", "Method", "Origin"] },
   {
     name: "SOURCE",
     fields: [
@@ -136,6 +136,8 @@ const facetGroups = [
       "Source Hostname",
       "Source Name",
       "Source Service",
+      "Site",
+      "Network Scope",
     ],
   },
   {
@@ -145,19 +147,15 @@ const facetGroups = [
       "Destination IP Address",
       "Destination Port",
       "Destination Reachable",
-      "Destination Reverse DNS",
       "Destination Service",
+      "Destination AS",
+      "Destination Country / City",
       "Destination TTL",
     ],
   },
   {
-    name: "TRACEROUTE RUNS",
-    fields: [
-      "Destination AS Domain",
-      "Destination AS Name",
-      "Destination AS Number",
-      "Hop Count",
-    ],
+    name: "TEST",
+    fields: ["Test ID", "Test Name", "Tags", "Agent Version"],
   },
 ];
 const navigation = [
@@ -547,24 +545,37 @@ export function NetworkPath() {
       <span>{t("AVG RTT")}</span>
     </div>
   );
-  const facetValues = (field: string) =>
-    field === "Protocol"
-      ? ["TCP", "UDP"]
-      : field === "Destination Reachable"
-        ? ["Reachable", "Unreachable", "No Data"]
-        : field.includes("Source")
-          ? [...new Set(tests.map((test) => test.source))]
-          : field.includes("Port")
-            ? [...new Set(tests.map((test) => test.port || "-"))]
-            : field === "Origin"
-              ? ["agent"]
-              : field.includes("AS")
-                ? ["Google LLC", "Cloudflare, Inc."]
-                : field === "Hop Count"
-                  ? ["8", "12"]
-                  : field.includes("TTL")
-                    ? ["64", "128"]
-                    : [...new Set(tests.map((test) => test.destination))];
+  const unique = (values: string[]) => [...new Set(values)];
+  const facetValueMap: Record<string, string[]> = {
+    Protocol: ["TCP", "UDP"],
+    Method: ["TCP SYN", "ICMP Echo", "UDP"],
+    Origin: ["scheduled"],
+    "Source Display Name": unique(tests.map((test) => test.source)),
+    "Source Hostname": unique(tests.map((test) => test.source)),
+    "Source Name": unique(tests.map((test) => test.source)),
+    "Source Service": ["netpath-agent", "snmp-collector"],
+    Site: unique(tests.map((test) => test.site)),
+    "Network Scope": ["default", "dc-private-a"],
+    "Destination Hostname": unique(tests.map((test) => test.destination)),
+    "Destination IP Address": unique(tests.map((test) => test.destination)),
+    "Destination Port": unique(tests.map((test) => test.port || "-")),
+    "Destination Reachable": ["Reachable", "Unreachable", "No Data"],
+    "Destination Service": ["https", "ssh", "snmp"],
+    "Destination AS": ["AS4134 China Telecom", "AS9808 China Mobile"],
+    "Destination Country / City": [
+      "China / Beijing",
+      "China / Shanghai",
+      "China / Shenzhen",
+    ],
+    "Destination TTL": ["8", "12"],
+    "Test ID": unique(tests.map((test) => test.id)),
+    "Test Name": ["Core connectivity", "DMZ reachability", "Campus uplink"],
+    Tags: unique(
+      tests.flatMap((test) => [`env:${test.env}`, `site:${test.site}`]),
+    ),
+    "Agent Version": ["1.8.2", "1.7.5"],
+  };
+  const facetValues = (field: string) => facetValueMap[field] ?? [];
 
   return (
     <div className="np-app">
@@ -996,7 +1007,8 @@ export function NetworkPath() {
                             .includes(facetQuery.toLowerCase()),
                         ).length
                     }{" "}
-                    {isZh ? "/ 共" : "of"} 20{" "}
+                    {isZh ? "/ 共" : "of"}{" "}
+                    {facetGroups.flatMap((group) => group.fields).length}{" "}
                     <AddFacetMenu onPick={revealFacet}>
                       <button type="button">
                         <Plus size={12} /> {t("Add")}
@@ -1065,7 +1077,13 @@ export function NetworkPath() {
                                               ? "All Tests"
                                               : value,
                                           );
-                                        else if (field.includes("Source"))
+                                        else if (
+                                          [
+                                            "Source Display Name",
+                                            "Source Hostname",
+                                            "Source Name",
+                                          ].includes(field)
+                                        )
                                           setSource(
                                             source === value ? "All" : value,
                                           );
@@ -1077,7 +1095,6 @@ export function NetworkPath() {
                                           [
                                             "Destination Hostname",
                                             "Destination IP Address",
-                                            "Destination Reverse DNS",
                                           ].includes(field)
                                         )
                                           setDestination(
