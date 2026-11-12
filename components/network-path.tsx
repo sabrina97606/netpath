@@ -1,10 +1,21 @@
 "use client";
 
+import "@/lib/suppress-resize-observer-error";
 import { useEffect, useState } from "react";
 import { NetworkPathDetail } from "@/components/network-path-detail";
 import { CiLink } from "@/components/ci-link";
 import { NetworkPathDashboard } from "@/components/network-path-dashboard";
+import {
+  DEFAULT_VIEW_ID,
+  NetworkPathViewsDrawer,
+  defaultViewConfig,
+  sameConfig,
+  useSavedViews,
+  type ViewConfig,
+} from "@/components/network-path-views-drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { NetworkPathLanguageSwitch } from "@/components/network-path-language-switch";
+import { useNpI18n } from "@/lib/network-path-i18n";
 import { cmdbByIp, cmdbByName, device as cmdbDevice } from "@/lib/cmdb";
 import {
   Select,
@@ -19,7 +30,6 @@ import {
   ArrowRight,
   Bell,
   Box,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -39,10 +49,18 @@ import {
   RefreshCw,
   Search,
   Server,
+  FilterX,
+  Check,
   Settings,
   Workflow,
   X,
 } from "lucide-react";
+import { RangeFacet, type Range } from "@/components/network-path-range-facet";
+import {
+  NetworkPathQueryBar,
+  type QueryField,
+  type QueryToken,
+} from "@/components/network-path-query-bar";
 
 type Test = {
   id: string;
@@ -55,7 +73,68 @@ type Test = {
   site: string;
   env: string;
   interval?: string;
+  noData?: boolean;
 };
+const statusOf = (test: Test) =>
+  test.noData ? "No Data" : test.reach > 0 ? "Reachable" : "Unreachable";
+const ttlOf = (test: Test) => 4 + (parseInt(test.id.slice(0, 2), 16) % 20);
+const numericValue: Record<string, (test: Test) => number | null> = {
+  "Destination Port": (test) => (test.port ? Number(test.port) : null),
+  "Destination TTL": ttlOf,
+};
+const pickFor = (test: Test, options: string[]) =>
+  options[parseInt(test.id.slice(2, 4), 16) % options.length];
+const serviceByPort: Record<string, string> = {
+  "443": "https",
+  "8443": "https",
+  "22": "ssh",
+  "161": "snmp",
+};
+const facetAccessor: Record<
+  string,
+  (test: Test) => string | string[] | undefined
+> = {
+  Protocol: (test) => test.protocol,
+  Method: (test) => (test.protocol === "TCP" ? "TCP SYN" : "UDP"),
+  Origin: () => "scheduled",
+  "Source Display Name": (test) => test.source,
+  "Source Hostname": (test) => test.source,
+  "Source Name": (test) => test.source,
+  "Source Service": () => "netpath-agent",
+  Site: (test) => test.site,
+  "Network Scope": () => "default",
+  "Destination Hostname": (test) => test.destination,
+  "Destination IP Address": (test) => test.destination,
+  "Destination Port": (test) => test.port || "-",
+  "Destination Reachable": statusOf,
+  "Destination Service": (test) => serviceByPort[test.port],
+  "Destination AS": (test) =>
+    pickFor(test, ["AS4134 China Telecom", "AS9808 China Mobile"]),
+  "Destination Country / City": (test) =>
+    pickFor(test, ["China / Beijing", "China / Shanghai", "China / Shenzhen"]),
+  "Test ID": (test) => test.id,
+  "Test Name": (test) =>
+    pickFor(test, ["Core connectivity", "DMZ reachability", "Campus uplink"]),
+  Tags: (test) => [`env:${test.env}`, `site:${test.site}`],
+  "Agent Version": (test) => pickFor(test, ["1.8.2", "1.7.5"]),
+};
+const facetFilterKey: Record<string, string> = {
+  Protocol: "protocol",
+  "Destination Reachable": "status",
+  "Source Display Name": "source",
+  "Source Hostname": "source",
+  "Source Name": "source",
+  "Destination Port": "port",
+  "Destination Hostname": "destination",
+  "Destination IP Address": "destination",
+  "Test ID": "testId",
+};
+const formatCount = (count: number) =>
+  count >= 1e6
+    ? `${(count / 1e6).toFixed(2).replace(/\.?0+$/, "")}M`
+    : count >= 1000
+      ? `${(count / 1000).toFixed(2).replace(/\.?0+$/, "")}k`
+      : String(count);
 const ip = (name: string) => cmdbDevice(name).ip;
 const initialTests: Test[] = [
   { id: "70de870cc48fbeaf", source: "SH-DC1-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "TCP", port: "443", reach: 99.8, rtt: 23, site: "sh-dc1", env: "production" },
@@ -64,6 +143,7 @@ const initialTests: Test[] = [
   { id: "a80246de490bb32c", source: "GZ-HQ-CORE-SW01", destination: ip("BJ-HQ-CORE-SW01"), protocol: "UDP", port: "", reach: 97.4, rtt: 41, site: "gz-hq", env: "production" },
   { id: "b3159c0d7e2a46f1", source: "SH-DC1-DMZ-FW01", destination: ip("HZ-CAMPUS-EDGE-FW01"), protocol: "TCP", port: "22", reach: 99.9, rtt: 9, site: "sh-dc1", env: "production" },
   { id: "c9e21b84a05d3f67", source: "BJ-HQ-CORE-SW01", destination: ip("WH-CAMPUS-CORE-SW01"), protocol: "TCP", port: "161", reach: 0, rtt: 0, site: "bj-hq", env: "production" },
+  { id: "e4f7a90b3c1d5e82", source: "SZ-DC1-CORE-SW01", destination: ip("GZ-HQ-CORE-SW01"), protocol: "TCP", port: "8443", reach: 0, rtt: 0, site: "sz-dc1", env: "production", noData: true },
 ];
 function AddFacetMenu({
   onPick,
@@ -73,13 +153,14 @@ function AddFacetMenu({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const { t } = useNpI18n();
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="start" className="np-facet-menu">
         {facetGroups.map((group) => (
           <div key={group.name}>
-            <div className="np-facet-menu-group">{group.name}</div>
+            <div className="np-facet-menu-group">{t(group.name)}</div>
             {group.fields.map((field) => (
               <button
                 key={field}
@@ -89,7 +170,7 @@ function AddFacetMenu({
                   setOpen(false);
                 }}
               >
-                {field}
+                {t(field)}
               </button>
             ))}
           </div>
@@ -114,7 +195,7 @@ const matchesSearch = (test: Test, keyword: string) => {
     .some((candidate) => candidate.toLowerCase().includes(needle));
 };
 const facetGroups = [
-  { name: "PATH", fields: ["Origin", "Protocol"] },
+  { name: "PATH", fields: ["Protocol", "Method", "Origin"] },
   {
     name: "SOURCE",
     fields: [
@@ -122,6 +203,8 @@ const facetGroups = [
       "Source Hostname",
       "Source Name",
       "Source Service",
+      "Site",
+      "Network Scope",
     ],
   },
   {
@@ -131,19 +214,15 @@ const facetGroups = [
       "Destination IP Address",
       "Destination Port",
       "Destination Reachable",
-      "Destination Reverse DNS",
       "Destination Service",
+      "Destination AS",
+      "Destination Country / City",
       "Destination TTL",
     ],
   },
   {
-    name: "TRACEROUTE RUNS",
-    fields: [
-      "Destination AS Domain",
-      "Destination AS Name",
-      "Destination AS Number",
-      "Hop Count",
-    ],
+    name: "TEST",
+    fields: ["Test ID", "Test Name", "Tags", "Agent Version"],
   },
 ];
 const navigation = [
@@ -174,11 +253,12 @@ function IconButton({
   children: React.ReactNode;
   active?: boolean;
 }) {
+  const { t } = useNpI18n();
   return (
     <button
       type="button"
-      title={label}
-      aria-label={label}
+      title={t(label)}
+      aria-label={t(label)}
       onClick={onClick}
       className={`np-icon ${active ? "active" : ""}`}
     >
@@ -194,6 +274,7 @@ function Sparkline({
   value: number;
   latency?: boolean;
 }) {
+  const { t, isZh } = useNpI18n();
   const samples = Array.from({ length: 31 }, (_, index) =>
     value === 0
       ? 0
@@ -215,7 +296,7 @@ function Sparkline({
       className="np-spark"
       viewBox="0 0 90 30"
       role="img"
-      aria-label={`${latency ? "RTT" : "Reachability"} trend: ${value}${latency ? " ms" : "%"}`}
+      aria-label={`${t(latency ? "RTT" : "Reachability")}${isZh ? "趋势" : " trend"}: ${value}${latency ? " ms" : "%"}`}
     >
       <path
         d={`M0,28 L${points.replaceAll(" ", " L")} L90,28 Z`}
@@ -263,6 +344,7 @@ export function NetworkPath() {
   const [source, setSource] = useState("All");
   const [destination, setDestination] = useState("All");
   const [port, setPort] = useState("All");
+  const [ranges, setRanges] = useState<Record<string, Range>>({});
   const [protocol, setProtocol] = useState("All");
   const [testId, setTestId] = useState("All");
   const [status, setStatus] = useState("All Tests");
@@ -270,8 +352,7 @@ export function NetworkPath() {
   const [openFacet, setOpenFacet] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(["8.8.8.8", "1.1.1.1"]);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [drawer, setDrawer] = useState<"new" | "detail" | "map" | null>(null);
+  const [drawer, setDrawer] = useState<"new" | "detail" | null>(null);
   const [detail, setDetail] = useState<Test>(initialTests[1]);
   const [detailOpen, setDetailOpen] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -291,7 +372,9 @@ export function NetworkPath() {
     null,
   );
   const [formError, setFormError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const savedViews = useSavedViews();
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const { t, isZh } = useNpI18n();
   const refresh = () => setRefreshed(new Date().toLocaleTimeString("en-GB"));
   useEffect(() => {
     const restoreDetail = () => {
@@ -346,18 +429,136 @@ export function NetworkPath() {
       previousFocus?.focus();
     };
   }, [drawer]);
+  const numericFacets: Record<string, Range> = Object.fromEntries(
+    Object.entries(numericValue).map(([field, read]) => {
+      const values = tests
+        .map(read)
+        .filter((value): value is number => value !== null && Number.isFinite(value));
+      return [
+        field,
+        values.length ? [Math.min(...values), Math.max(...values)] : [0, 0],
+      ];
+    }),
+  );
+  const setFacetRange = (field: string, next: Range) => {
+    const [min, max] = numericFacets[field];
+    setRanges((current) => {
+      const { [field]: _removed, ...rest } = current;
+      return next[0] <= min && next[1] >= max ? rest : { ...rest, [field]: next };
+    });
+    resetPage();
+  };
+  const clearFacetRange = (field: string) => {
+    setRanges(({ [field]: _removed, ...rest }) => rest);
+    resetPage();
+  };
+  const rangeFieldKeys: Record<string, string> = {
+    "Destination Port": "destination.port",
+    "Destination TTL": "destination.ttl",
+  };
+  const queryFields: QueryField[] = [
+    { key: "source.display_name", label: "Source Display Name", values: [...new Set(tests.map((test) => test.source))] },
+    { key: "destination.hostname", label: "Destination Hostname", values: [...new Set(tests.map((test) => test.destination))] },
+    { key: "destination.port", label: "Destination Port", range: numericFacets["Destination Port"] },
+    { key: "destination.ttl", label: "Destination TTL", range: numericFacets["Destination TTL"] },
+    { key: "protocol", label: "Protocol", values: ["TCP", "UDP", "ICMP"] },
+    { key: "destination.reachable", label: "Destination Reachable", values: ["Reachable", "Unreachable", "No Data"] },
+    { key: "test_id", label: "Test ID", values: tests.map((test) => test.id) },
+  ];
+  const queryTokens: QueryToken[] = [
+    ...(source !== "All" ? [{ id: "source", field: "source.display_name", value: source }] : []),
+    ...(destination !== "All" ? [{ id: "destination", field: "destination.hostname", value: destination }] : []),
+    ...(port !== "All" ? [{ id: "port", field: "destination.port", value: port }] : []),
+    ...Object.entries(ranges).map(([field, [low, high]]) => ({
+      id: `range:${field}`,
+      field: rangeFieldKeys[field] ?? field,
+      value: `[${low} TO ${high}]`,
+    })),
+    ...(protocol !== "All" ? [{ id: "protocol", field: "protocol", value: protocol }] : []),
+    ...(status !== "All Tests" ? [{ id: "status", field: "destination.reachable", value: status }] : []),
+    ...(testId !== "All" ? [{ id: "testId", field: "test_id", value: testId }] : []),
+    ...(query ? [{ id: "text", field: "", value: query }] : []),
+  ];
+  const parseRange = (raw: string, [min, max]: Range): Range | null => {
+    const text = raw.trim();
+    const num = (value: string) => (value.trim() === "*" ? null : Number(value));
+    let low: number | null = min;
+    let high: number | null = max;
+    const between = text.match(/^\[?\s*([\d.*]+)\s*(?:TO|-|~|,)\s*([\d.*]+)\s*\]?$/i);
+    const compare = text.match(/^(>=|<=|>|<)\s*([\d.]+)$/);
+    if (between) {
+      low = num(between[1]) ?? min;
+      high = num(between[2]) ?? max;
+    } else if (compare) {
+      const value = Number(compare[2]);
+      if (compare[1].startsWith(">")) low = value;
+      else high = value;
+    } else if (/^[\d.]+$/.test(text)) {
+      low = high = Number(text);
+    } else return null;
+    if (!Number.isFinite(low) || !Number.isFinite(high) || low > high) return null;
+    return [Math.max(min, low), Math.min(max, high)];
+  };
+  const applyQuery = (field: QueryField, raw: string) => {
+    const rangeName = Object.keys(rangeFieldKeys).find((name) => rangeFieldKeys[name] === field.key);
+    if (rangeName) {
+      const next = parseRange(raw, numericFacets[rangeName]);
+      if (!next) return false;
+      setFacetRange(rangeName, next);
+      setOpenFacet(rangeName);
+      return true;
+    }
+    const value =
+      field.values?.find((option) => option.toLowerCase() === raw.trim().toLowerCase()) ?? raw.trim();
+    if (!value) return false;
+    if (field.key === "source.display_name") setSource(value);
+    else if (field.key === "destination.hostname") setDestination(value);
+    else if (field.key === "protocol") setProtocol(value.toUpperCase());
+    else if (field.key === "destination.reachable") {
+      if (!field.values?.includes(value)) return false;
+      setStatus(value);
+    } else if (field.key === "test_id") setTestId(value);
+    resetPage();
+    return true;
+  };
+  const removeQueryToken = (id: string) => {
+    if (id.startsWith("range:")) return clearFacetRange(id.slice(6));
+    if (id === "source") setSource("All");
+    else if (id === "destination") setDestination("All");
+    else if (id === "port") setPort("All");
+    else if (id === "protocol") setProtocol("All");
+    else if (id === "status") setStatus("All Tests");
+    else if (id === "testId") setTestId("All");
+    else if (id === "text") setQuery("");
+    resetPage();
+  };
+  const clearAllFilters = () => {
+    setQuery("");
+    setSource("All");
+    setDestination("All");
+    setPort("All");
+    setRanges({});
+    setProtocol("All");
+    setTestId("All");
+    setStatus("All Tests");
+    resetPage();
+  };
+  const matchesFilters = (test: Test, skip?: string) =>
+    Object.entries(ranges).every(([field, [low, high]]) => {
+      const value = numericValue[field]?.(test);
+      return value != null && value >= low && value <= high;
+    }) &&
+    (skip === "source" || source === "All" || test.source === source) &&
+    (skip === "destination" ||
+      destination === "All" ||
+      test.destination === destination) &&
+    (skip === "port" || port === "All" || (test.port || "-") === port) &&
+    (skip === "protocol" || protocol === "All" || test.protocol === protocol) &&
+    (skip === "testId" || testId === "All" || test.id === testId) &&
+    (skip === "status" || status === "All Tests" || statusOf(test) === status) &&
+    matchesSearch(test, query);
   const filtered = tests
-    .filter(
-      (test) =>
-        (source === "All" || test.source === source) &&
-        (destination === "All" || test.destination === destination) &&
-        (port === "All" || (test.port || "-") === port) &&
-        (protocol === "All" || test.protocol === protocol) &&
-        (testId === "All" || test.id === testId) &&
-        (status === "All Tests" ||
-          (status === "Reachable" ? test.reach > 0 : test.reach === 0)) &&
-        matchesSearch(test, query),
-    )
+    .filter((test) => matchesFilters(test))
     .sort((left, right) =>
       sortDirection
         ? sortDirection === "asc"
@@ -377,12 +578,6 @@ export function NetworkPath() {
     }, {}),
   );
   const visibleGroups = groups.slice((page - 1) * pageSize, page * pageSize);
-  const toggleSelected = (id: string) =>
-    setSelected(
-      selected.includes(id)
-        ? selected.filter((item) => item !== id)
-        : [...selected, id],
-    );
   const openDetail = (test: Test) => {
     setDetail(test);
     setDetailOpen(true);
@@ -422,32 +617,28 @@ export function NetworkPath() {
     link.click();
     URL.revokeObjectURL(url);
   };
-  const saveView = () => {
-    localStorage.setItem(
-      "doop-network-path-view",
-      JSON.stringify({
-        query,
-        source,
-        destination,
-        port,
-        protocol,
-        testId,
-        status,
-        view,
-        groupBy,
-        range,
-      }),
-    );
-    setSaved(true);
-    setNotice("View saved");
+  const currentConfig: ViewConfig = {
+    query,
+    source,
+    destination,
+    port,
+    protocol,
+    testId,
+    status,
+    view,
+    groupBy,
+    range,
+    ranges: Object.keys(ranges).length
+      ? JSON.stringify(
+          Object.fromEntries(
+            Object.keys(ranges)
+              .sort()
+              .map((field) => [field, ranges[field]]),
+          ),
+        )
+      : "",
   };
-  const restoreView = () => {
-    const stored = localStorage.getItem("doop-network-path-view");
-    if (!stored) {
-      setNotice("No saved view");
-      return;
-    }
-    const config = JSON.parse(stored);
+  const applyConfig = (config: ViewConfig) => {
     setQuery(config.query);
     setSource(config.source);
     setDestination(config.destination);
@@ -458,30 +649,63 @@ export function NetworkPath() {
     setView(config.view);
     setGroupBy(config.groupBy);
     setRange(config.range);
+    setRanges(config.ranges ? JSON.parse(config.ranges) : {});
     resetPage();
-    setNotice("Saved view restored");
   };
-  const metrics = (test: Test) => (
-    <>
-      <div className="np-metric">
-        <strong>{test.reach}%</strong>
-        <Sparkline value={test.reach} />
-      </div>
-      <div className="np-metric">
-        <strong>{test.rtt ? `${test.rtt} ms` : "0 ns"}</strong>
-        <Sparkline value={test.rtt} latency />
-      </div>
-    </>
-  );
+  const restoreView = () => {
+    const stored = localStorage.getItem("doop-network-path-view");
+    const config: ViewConfig = stored
+      ? { ...defaultViewConfig, ...JSON.parse(stored) }
+      : defaultViewConfig;
+    applyConfig(config);
+    savedViews.setDefaultConfig(config);
+    setNotice(stored ? "Saved view restored" : "Default view restored");
+  };
+  const viewDirty = !sameConfig(currentConfig, savedViews.baseline);
+  const saveViewChanges = () => {
+    if (savedViews.activeId === DEFAULT_VIEW_ID) {
+      localStorage.setItem("doop-network-path-view", JSON.stringify(currentConfig));
+      savedViews.setDefaultConfig(currentConfig);
+    } else {
+      savedViews.setViews(
+        savedViews.views.map((item) =>
+          item.id === savedViews.activeId ? { ...item, config: currentConfig } : item,
+        ),
+      );
+    }
+    setNotice(`Changes saved to view: ${savedViews.activeName}`);
+  };
+  const revertViewChanges = () => {
+    applyConfig(savedViews.baseline);
+    setNotice(`Changes reverted: ${savedViews.activeName}`);
+  };
+  const metrics = (test: Test) =>
+    test.noData ? (
+      <>
+        <div className="np-metric">
+          <strong className="np-muted">{t("No data")}</strong>
+        </div>
+        <div className="np-metric">
+          <strong className="np-muted">{t("No data")}</strong>
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="np-metric">
+          <strong>{test.reach}%</strong>
+          <Sparkline value={test.reach} />
+        </div>
+        <div className="np-metric">
+          <strong>{test.rtt ? `${test.rtt} ms` : "0 ns"}</strong>
+          <Sparkline value={test.rtt} latency />
+        </div>
+      </>
+    );
   const testRow = (test: Test) => (
     <div className="np-test-row" key={test.id}>
-      <input
-        aria-label={`Select ${test.destination} ${test.id}`}
-        type="checkbox"
-        checked={selected.includes(test.id)}
-        onChange={() => toggleSelected(test.id)}
+      <span
+        className={`np-status-line ${test.noData ? "nodata" : test.reach ? "" : "down"}`}
       />
-      <span className={`np-status-line ${test.reach ? "" : "down"}`} />
       <button className="np-source-link" onClick={() => openDetail(test)}>
         <SourceName name={test.source} />
       </button>
@@ -508,35 +732,42 @@ export function NetworkPath() {
   const testHeader = (
     <div className="np-test-header">
       <span />
+      <span>{t("SOURCE")}</span>
       <span />
-      <span>SOURCE</span>
-      <span />
-      <span>DESTINATION</span>
-      <span>TAGS</span>
-      <span>PROTOCOL</span>
-      <span>PORT</span>
-      <span>AVG REACHABILITY</span>
-      <span>AVG RTT</span>
+      <span>{t("DESTINATION")}</span>
+      <span>{t("TAGS")}</span>
+      <span>{t("PROTOCOL")}</span>
+      <span>{t("PORT")}</span>
+      <span>{t("AVG REACHABILITY")}</span>
+      <span>{t("AVG RTT")}</span>
     </div>
   );
-  const facetValues = (field: string) =>
-    field === "Protocol"
-      ? ["TCP", "UDP"]
-      : field === "Destination Reachable"
-        ? ["Reachable", "Unreachable"]
-        : field.includes("Source")
-          ? [...new Set(tests.map((test) => test.source))]
-          : field.includes("Port")
-            ? [...new Set(tests.map((test) => test.port || "-"))]
-            : field === "Origin"
-              ? ["agent"]
-              : field.includes("AS")
-                ? ["Google LLC", "Cloudflare, Inc."]
-                : field === "Hop Count"
-                  ? ["8", "12"]
-                  : field.includes("TTL")
-                    ? ["64", "128"]
-                    : [...new Set(tests.map((test) => test.destination))];
+  const facetCounts = (field: string): [string, number][] => {
+    const accessor = facetAccessor[field];
+    if (!accessor) return [];
+    const counts = new globalThis.Map<string, number>();
+    for (const test of tests) {
+      if (!matchesFilters(test, facetFilterKey[field])) continue;
+      const raw = accessor(test);
+      for (const value of raw == null ? [] : [raw].flat())
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+    return [...counts].sort(
+      (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+    );
+  };
+  const selectedByKey: Record<string, string> = {
+    source,
+    destination,
+    port,
+    protocol,
+    testId,
+    status,
+  };
+  const facetSelected = (field: string) => {
+    const value = selectedByKey[facetFilterKey[field]];
+    return value && value !== "All" && value !== "All Tests" ? value : null;
+  };
 
   return (
     <div className="np-app">
@@ -544,11 +775,11 @@ export function NetworkPath() {
       <header className="np-top">
         <div className="np-brand">
           <Cloud size={23} />
-          <span>Digital Operation Central Platform</span>
+          <span>{t("Digital Operation Central Platform")}</span>
         </div>
         <Home size={13} />
         <span>
-          Products <ChevronDown size={10} />
+          {t("Products")} <ChevronDown size={10} />
         </span>
         <i />
         <span>DOOP</span>
@@ -556,11 +787,9 @@ export function NetworkPath() {
           <Search size={13} />
           <Bell size={13} />
           <b>云智慧集团</b>
+          <NetworkPathLanguageSwitch tone="dark" />
           <span>
-            English <ChevronDown size={10} />
-          </span>
-          <span>
-            Admin <ChevronDown size={10} />
+            {t("Admin")} <ChevronDown size={10} />
           </span>
         </div>
       </header>
@@ -578,11 +807,12 @@ export function NetworkPath() {
                   item.label !== "Infrastructure" &&
                   setNotice(
                     `${item.label} is outside the Network Path prototype`,
+                    /* 渲染时由 t() 翻译 */
                   )
                 }
               >
                 <item.icon size={13} />
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
                 <ChevronDown size={11} />
               </button>
               {item.label === "Infrastructure" && (
@@ -610,7 +840,7 @@ export function NetworkPath() {
                         }
                       }}
                     >
-                      {label}
+                      {t(label)}
                     </button>
                   ))}
                 </div>
@@ -626,13 +856,13 @@ export function NetworkPath() {
           {showChrome && (
           <div className="np-workspace-tabs">
             <span>
-              <Network size={12} /> Network Path
+              <Network size={12} /> {t("Network Path")}
             </span>
             <a href="/pipeline">
-              Netflow Pipeline <X size={10} />
+              {t("Netflow Pipeline")} <X size={10} />
             </a>
             <span className="np-muted-tab">
-              default <X size={10} />
+              {t("default")} <X size={10} />
             </span>
             <MoreVertical size={13} />
           </div>
@@ -642,17 +872,36 @@ export function NetworkPath() {
               type="button"
               role="switch"
               aria-checked={showChrome}
-              aria-label="显示顶部导航与左侧菜单"
-              title={showChrome ? "隐藏导航" : "显示导航"}
+              aria-label={t("Show top navigation and side menu")}
+              title={t(showChrome ? "Hide navigation" : "Show navigation")}
               className={`np-chrome-switch${showChrome ? " on" : ""}`}
               onClick={() => setShowChrome((value) => !value)}
             >
               <span />
             </button>
-            <button className="np-my-view" onClick={restoreView}>
-              My View
+            <button
+              className={`np-my-view${viewDirty ? " dirty" : ""}`}
+              aria-expanded={viewsOpen}
+              aria-controls="np-views-panel"
+              onClick={() => setViewsOpen((value) => !value)}
+            >
+              {viewDirty && <span className="np-my-view-dot" aria-hidden="true" />}
+              {t("My View")}
             </button>
-            <h1>Network Path</h1>
+            {viewDirty && !viewsOpen && tab === "Explorer" && !detailOpen && (
+              <div className="np-view-pill" role="status">
+                <span className="np-view-pill-text">
+                  <strong>{t(savedViews.activeName)}</strong> · {t("Modified")}
+                </span>
+                <button type="button" className="np-view-revert" onClick={revertViewChanges}>
+                  {t("Revert")}
+                </button>
+                <button type="button" className="np-view-savechanges" onClick={saveViewChanges}>
+                  {t("Save changes")}
+                </button>
+              </div>
+            )}
+            <h1>{t("Network Path")}</h1>
             <div className="np-module-tabs">
               <div>
                 {["Explorer", "Dashboards"].map((item) => (
@@ -664,23 +913,16 @@ export function NetworkPath() {
                       closeDetail();
                     }}
                   >
-                    {item}
+                    {t(item)}
                   </button>
                 ))}
               </div>
             </div>
             <div className="np-viewbar">
-              {!detailOpen && (
-                <>
-                  <IconButton label="Save current view" onClick={saveView}>
-                    {saved ? <Check size={13} /> : <MoreVertical size={13} />}
-                  </IconButton>
-                </>
-              )}
               <div className="np-timebar">
                 <span>UTC+08:00</span>
                 <select
-                  aria-label="Time range"
+                  aria-label={t("Time range")}
                   value={range}
                   onChange={(event) => {
                     setRange(event.target.value);
@@ -695,14 +937,16 @@ export function NetworkPath() {
                     "Past 1 Day",
                     "Past 7 Days",
                   ].map((item) => (
-                    <option key={item}>{item}</option>
+                    <option key={item} value={item}>
+                      {t(item)}
+                    </option>
                   ))}
                 </select>
                 {timeOffset !== 0 && (
                   <small>
-                    {Math.abs(timeOffset)} window
-                    {Math.abs(timeOffset) > 1 ? "s" : ""}{" "}
-                    {timeOffset < 0 ? "earlier" : "later"}
+                    {isZh
+                      ? `${Math.abs(timeOffset)} 个窗口${timeOffset < 0 ? "前" : "后"}`
+                      : `${Math.abs(timeOffset)} window${Math.abs(timeOffset) > 1 ? "s" : ""} ${timeOffset < 0 ? "earlier" : "later"}`}
                   </small>
                 )}
                 <IconButton
@@ -736,14 +980,33 @@ export function NetworkPath() {
                     setDrawer("new");
                   }}
                 >
-                  <Plus size={14} /> New Test
+                  <Plus size={14} /> {t("New Test")}
                 </button>
               )}
             </div>
+            {!showChrome && <NetworkPathLanguageSwitch />}
           </div>
+          <div className="np-body">
+          <NetworkPathViewsDrawer
+            open={viewsOpen}
+            current={currentConfig}
+            store={savedViews}
+            dirty={viewDirty}
+            onClose={() => setViewsOpen(false)}
+            onDefault={() => {
+              restoreView();
+            }}
+            onApply={(config, name) => {
+              applyConfig(config);
+              setNotice(`View applied: ${name}`);
+            }}
+            onSaveChanges={saveViewChanges}
+            onRevert={revertViewChanges}
+          />
+          <div className="np-content">
           {notice && (
             <div className="np-notice" role="status">
-              {notice}
+              {t(notice)}
               <IconButton label="Dismiss" onClick={() => setNotice("")}>
                 <X size={12} />
               </IconButton>
@@ -762,153 +1025,88 @@ export function NetworkPath() {
           {tab === "Explorer" && !detailOpen && (
             <>
               <section className="np-filterbar">
-                <div className="np-search">
-                  <Search size={13} />
-                  <input
-                    aria-label="Search tests"
-                    placeholder="Search for"
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
+                <div className="np-filter-main">
+                  <NetworkPathQueryBar
+                    fields={queryFields}
+                    tokens={queryTokens}
+                    onApply={applyQuery}
+                    onRemove={removeQueryToken}
+                    onFreeText={(text) => {
+                      setQuery(text);
                       resetPage();
                     }}
+                    onClearAll={clearAllFilters}
                   />
-                  <IconButton
-                    label="Show facets"
-                    onClick={() => {
-                      setCollapsed([]);
-                      setFacetQuery("");
-                    }}
-                  >
-                    <Filter size={12} />
-                  </IconButton>
                 </div>
-                {[
-                  {
-                    label: "Source Display Name",
-                    value: source,
-                    setter: setSource,
-                    options: [...new Set(tests.map((test) => test.source))],
-                  },
-                  {
-                    label: "Destination Hostname",
-                    value: destination,
-                    setter: setDestination,
-                    options: [
-                      ...new Set(tests.map((test) => test.destination)),
-                    ],
-                  },
-                  {
-                    label: "Destination Port",
-                    value: port,
-                    setter: setPort,
-                    options: [
-                      ...new Set(tests.map((test) => test.port || "-")),
-                    ],
-                  },
-                  {
-                    label: "Test Run Type",
-                    value: protocol,
-                    setter: setProtocol,
-                    options: ["TCP", "UDP", "ICMP"],
-                  },
-                  {
-                    label: "Test ID",
-                    value: testId,
-                    setter: setTestId,
-                    options: tests.map((test) => test.id),
-                  },
-                ].map((filter) => (
-                  <label className="np-filter" key={filter.label}>
-                    <span>{filter.label}</span>
-                    <select
-                      aria-label={filter.label}
-                      value={filter.value}
-                      onChange={(event) => {
-                        filter.setter(event.target.value);
+                <div className="np-view-row">
+                  <div className="np-view-group">
+                    <span className="np-view-label">{t("View as")}</span>
+                    <div className="np-view-seg" role="group" aria-label={t("View as")}>
+                      {(["Individual Tests", "Grouped Tests"] as const).map(
+                        (option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            className={view === option ? "active" : ""}
+                            aria-pressed={view === option}
+                            onClick={() => {
+                              setView(option);
+                              resetPage();
+                            }}
+                          >
+                            {t(option)}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div className="np-view-group">
+                    <span className="np-view-label">{t("Group by")}</span>
+                    <Select
+                      value={groupBy}
+                      disabled={view === "Individual Tests"}
+                      onValueChange={(value) => {
+                        setGroupBy(value);
                         resetPage();
                       }}
                     >
-                      <option>All</option>
-                      {filter.options.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-                <div className="np-view-options">
-                  <span>View By</span>
-                  <Select
-                    value={view === "Individual Tests" ? "individual" : groupBy}
-                    onValueChange={(value) => {
-                      setView(
-                        value === "individual"
-                          ? "Individual Tests"
-                          : "Grouped Tests",
-                      );
-                      if (value !== "individual") setGroupBy(value);
-                      resetPage();
-                    }}
-                  >
-                    <SelectTrigger
-                      className="np-view-trigger"
-                      aria-label="View By"
-                    >
-                      <SelectValue>
-                        {view === "Individual Tests"
-                          ? "Individual Tests"
-                          : groupBy === "destination"
-                            ? "destination.hostname"
-                            : "source.display_name × destination.hostname"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="np-view-menu">
-                      <SelectItem value="individual">
-                        Individual Tests
-                      </SelectItem>
-                      <SelectItem value="source">
-                        source.display_name × destination.hostname
-                      </SelectItem>
-                      <SelectItem value="destination">
-                        destination.hostname
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                      <SelectTrigger
+                        className="np-view-trigger"
+                        aria-label={t("Group by")}
+                      >
+                        <SelectValue>
+                          {view === "Individual Tests"
+                            ? t("Ungrouped tests")
+                            : groupBy === "destination"
+                              ? "destination.hostname"
+                              : "source.display_name × destination.hostname"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="np-view-menu">
+                        <SelectItem value="source">
+                          source.display_name × destination.hostname
+                        </SelectItem>
+                        <SelectItem value="destination">
+                          destination.hostname
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <AddFacetMenu onPick={revealFacet}>
-                  <button type="button" className="np-blue-link">
-                    <Plus size={13} /> Add Facet
-                  </button>
-                </AddFacetMenu>
-                <button
-                  className="np-blue-link"
-                  onClick={() => {
-                    setQuery("");
-                    setSource("All");
-                    setDestination("All");
-                    setPort("All");
-                    setProtocol("All");
-                    setTestId("All");
-                    setStatus("All Tests");
-                    resetPage();
-                  }}
-                >
-                  Reset
-                </button>
               </section>
               <div className="np-explorer">
                 <aside className="np-facets">
                   <div className="np-facet-search">
                     <Search size={12} />
                     <input
-                      placeholder="Search facets"
-                      aria-label="Search facets"
+                      placeholder={t("Search facets")}
+                      aria-label={t("Search facets")}
                       value={facetQuery}
                       onChange={(event) => setFacetQuery(event.target.value)}
                     />
                   </div>
                   <div className="np-facet-meta">
-                    Showing{" "}
+                    {isZh ? "显示" : "Showing"}{" "}
                     {
                       facetGroups
                         .flatMap((group) => group.fields)
@@ -918,10 +1116,11 @@ export function NetworkPath() {
                             .includes(facetQuery.toLowerCase()),
                         ).length
                     }{" "}
-                    of 20{" "}
+                    {isZh ? "/ 共" : "of"}{" "}
+                    {facetGroups.flatMap((group) => group.fields).length}{" "}
                     <AddFacetMenu onPick={revealFacet}>
                       <button type="button">
-                        <Plus size={12} /> Add
+                        <Plus size={12} /> {t("Add")}
                       </button>
                     </AddFacetMenu>
                   </div>
@@ -942,7 +1141,7 @@ export function NetworkPath() {
                         ) : (
                           <ChevronDown size={12} />
                         )}
-                        {group.name}
+                        {t(group.name)}
                       </button>
                       {!collapsed.includes(group.name) &&
                         group.fields
@@ -952,7 +1151,10 @@ export function NetworkPath() {
                               .includes(facetQuery.toLowerCase()),
                           )
                           .map((field) => (
-                            <div key={field}>
+                            <div
+                              key={field}
+                              className={`np-facet-item${ranges[field] ? " applied" : ""}`}
+                            >
                               <button
                                 className="np-facet-field"
                                 data-facet={field}
@@ -967,13 +1169,44 @@ export function NetworkPath() {
                                 ) : (
                                   <ChevronRight size={12} />
                                 )}
-                                <span>{field}</span>
+                                <span>{t(field)}</span>
                               </button>
-                              {openFacet === field && (
+                              {ranges[field] && (
+                                <button
+                                  type="button"
+                                  className="np-facet-clear"
+                                  title={t("Clear filter")}
+                                  aria-label={`${t("Clear filter")}: ${t(field)}`}
+                                  onClick={() => clearFacetRange(field)}
+                                >
+                                  <FilterX size={14} />
+                                </button>
+                              )}
+                              {openFacet === field && numericFacets[field] && (
+                                <div className="np-facet-values np-facet-range">
+                                  <RangeFacet
+                                    label={field}
+                                    bounds={numericFacets[field]}
+                                    value={ranges[field] ?? numericFacets[field]}
+                                    onChange={(next) => setFacetRange(field, next)}
+                                  />
+                                </div>
+                              )}
+                              {openFacet === field && !numericFacets[field] && (
                                 <div className="np-facet-values">
-                                  {facetValues(field).map((value) => (
+                                  {facetCounts(field).length === 0 && (
+                                    <p className="np-facet-empty">
+                                      {t("No matching values")}
+                                    </p>
+                                  )}
+                                  {facetCounts(field).map(([value, count]) => {
+                                    const selected = facetSelected(field);
+                                    const checked = !selected || selected === value;
+                                    return (
                                     <button
                                       key={value}
+                                      className={`np-facet-value${selected === value ? " active" : ""}`}
+                                      aria-pressed={selected === value}
                                       onClick={() => {
                                         if (field === "Protocol")
                                           setProtocol(
@@ -987,7 +1220,13 @@ export function NetworkPath() {
                                               ? "All Tests"
                                               : value,
                                           );
-                                        else if (field.includes("Source"))
+                                        else if (
+                                          [
+                                            "Source Display Name",
+                                            "Source Hostname",
+                                            "Source Name",
+                                          ].includes(field)
+                                        )
                                           setSource(
                                             source === value ? "All" : value,
                                           );
@@ -999,7 +1238,6 @@ export function NetworkPath() {
                                           [
                                             "Destination Hostname",
                                             "Destination IP Address",
-                                            "Destination Reverse DNS",
                                           ].includes(field)
                                         )
                                           setDestination(
@@ -1007,26 +1245,40 @@ export function NetworkPath() {
                                               ? "All"
                                               : value,
                                           );
+                                        else if (field === "Test ID")
+                                          setTestId(
+                                            testId === value ? "All" : value,
+                                          );
                                         else
                                           setNotice(
-                                            `${field}: ${value} (sample metadata)`,
+                                            isZh
+                                              ? `${t(field)}：${t(value)}（示例元数据）`
+                                              : `${field}: ${value} (sample metadata)`,
                                           );
                                         resetPage();
                                       }}
                                     >
-                                      {value}
-                                      <span>
-                                        {tests.filter((test) =>
-                                          [
-                                            test.source,
-                                            test.destination,
-                                            test.protocol,
-                                            test.port,
-                                          ].includes(value),
-                                        ).length || tests.length}
+                                      <span
+                                        className={`np-facet-check${checked ? " checked" : ""}`}
+                                        aria-hidden="true"
+                                      >
+                                        {checked && <Check size={10} strokeWidth={3} />}
+                                      </span>
+                                      <span
+                                        className="np-facet-value-label"
+                                        title={t(value)}
+                                      >
+                                        {t(value)}
+                                      </span>
+                                      <span
+                                        className="np-facet-count"
+                                        title={String(count)}
+                                      >
+                                        {formatCount(count)}
                                       </span>
                                     </button>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -1037,7 +1289,7 @@ export function NetworkPath() {
                 <section className="np-results">
                   <div className="np-results-toolbar">
                     <div className="np-segment np-status-segment">
-                      {["All Tests", "Reachable", "Unreachable"].map((item) => (
+                      {["All Tests", "Reachable", "Unreachable", "No Data"].map((item) => (
                         <button
                           className={status === item ? "active" : ""}
                           key={item}
@@ -1046,36 +1298,34 @@ export function NetworkPath() {
                             resetPage();
                           }}
                         >
-                          {item} (
+                          {t(item)} (
                           {item === "All Tests"
                             ? tests.length
-                            : tests.filter((test) =>
-                                item === "Reachable"
-                                  ? test.reach > 0
-                                  : test.reach === 0,
-                              ).length}
+                            : tests.filter((test) => statusOf(test) === item)
+                                .length}
                           )
                         </button>
                       ))}
                     </div>
                     <span>
-                      Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–
+                      {isZh ? "显示" : "Showing"}{" "}
+                      {filtered.length ? (page - 1) * pageSize + 1 : 0}–
                       {Math.min(
                         page * pageSize,
                         view === "Grouped Tests"
                           ? groups.length
                           : filtered.length,
                       )}{" "}
-                      of{" "}
+                      {isZh ? "/ 共" : "of"}{" "}
                       {view === "Grouped Tests"
                         ? groups.length
                         : filtered.length}{" "}
-                      results
+                      {t("results")}
                     </span>
                     <label className="np-top-limit">
-                      Show top{" "}
+                      {t("Show top")}{" "}
                       <select
-                        aria-label="Show top results"
+                        aria-label={t("Show top results")}
                         value={limit}
                         onChange={(event) => {
                           setLimit(Number(event.target.value));
@@ -1088,44 +1338,29 @@ export function NetworkPath() {
                           </option>
                         ))}
                       </select>{" "}
-                      results
+                      {t("results")}
                     </label>
-                    <button
-                      className="np-outline"
-                      disabled={!selected.length}
-                      onClick={() => setSelected([])}
-                    >
-                      Clear Selections
-                    </button>
-                    <button
-                      className="np-primary"
-                      disabled={selected.length < 2}
-                      onClick={() => setDrawer("map")}
-                    >
-                      <Map size={12} /> Create Multi-Test Map
-                      {selected.length > 0 ? ` (${selected.length})` : ""}
-                    </button>
                   </div>
                   <div className="np-table-scroll">
                     {view === "Grouped Tests" ? (
                       <div className="np-group-table">
                         <div className="np-group-caption">
                           <span />
-                          <span>SOURCE</span>
-                          <span>DESTINATION</span>
-                          <span>METRICS</span>
+                          <span>{t("SOURCE")}</span>
+                          <span>{t("DESTINATION")}</span>
+                          <span>{t("METRICS")}</span>
                         </div>
                         <div className="np-group-header">
                           <span />
-                          <span>DISPLAY NAME</span>
-                          <span>HOSTNAME</span>
-                          <span>AVG REACHABILITY</span>
+                          <span>{t("DISPLAY NAME")}</span>
+                          <span>{t("HOSTNAME")}</span>
+                          <span>{t("AVG REACHABILITY")}</span>
                           <button
-                            title={
+                            title={t(
                               sortDirection === "asc"
                                 ? "Sort RTT descending"
-                                : "Sort RTT ascending"
-                            }
+                                : "Sort RTT ascending",
+                            )}
                             onClick={() => {
                               setSortDirection(
                                 sortDirection === "asc" ? "desc" : "asc",
@@ -1133,25 +1368,28 @@ export function NetworkPath() {
                               resetPage();
                             }}
                           >
-                            <ArrowDownUp size={12} /> AVG RTT
+                            <ArrowDownUp size={12} /> {t("AVG RTT")}
                           </button>
                         </div>
                         {visibleGroups.map(([key, items]) => {
                           const test = items[0];
+                          const measured = items.filter((item) => !item.noData);
+                          const divisor = measured.length || 1;
                           const aggregate = {
                             ...test,
+                            noData: measured.length === 0,
                             reach:
                               Math.round(
-                                (items.reduce(
+                                (measured.reduce(
                                   (sum, item) => sum + item.reach,
                                   0,
                                 ) /
-                                  items.length) *
+                                  divisor) *
                                   10,
                               ) / 10,
                             rtt: Math.round(
-                              items.reduce((sum, item) => sum + item.rtt, 0) /
-                                items.length,
+                              measured.reduce((sum, item) => sum + item.rtt, 0) /
+                                divisor,
                             ),
                           };
                           const isExpanded = expanded.includes(
@@ -1184,7 +1422,9 @@ export function NetworkPath() {
                                 >
                                   {groupBy === "source"
                                     ? <SourceName name={test.source} />
-                                    : `${items.length} source${items.length > 1 ? "s" : ""}`}
+                                    : isZh
+                                      ? `${items.length} 个源`
+                                      : `${items.length} source${items.length > 1 ? "s" : ""}`}
                                 </button>
                                 <button
                                   className="np-link"
@@ -1215,7 +1455,7 @@ export function NetworkPath() {
                     {filtered.length === 0 && (
                       <div className="np-empty">
                         <Search size={24} />
-                        <strong>No tests match your filters</strong>
+                        <strong>{t("No tests match your filters")}</strong>
                         <button
                           className="np-blue-link"
                           onClick={() => {
@@ -1223,25 +1463,26 @@ export function NetworkPath() {
                             setSource("All");
                             setDestination("All");
                             setPort("All");
+                            setRanges({});
                             setProtocol("All");
                             setTestId("All");
                             setStatus("All Tests");
                             resetPage();
                           }}
                         >
-                          Clear filters
+                          {t("Clear filters")}
                         </button>
                       </div>
                     )}
                   </div>
                   <div className="np-pagination">
                     <span className="np-update">
-                      {paused ? "Paused" : `Updated: ${refreshed}`}
+                      {t(paused ? "Paused" : `Updated: ${refreshed}`)}
                     </span>
                     <label>
-                      Results per page:{" "}
+                      {t("Results per page:")}{" "}
                       <select
-                        aria-label="Results per page"
+                        aria-label={t("Results per page")}
                         value={pageSize}
                         onChange={(event) => {
                           setPageSize(Number(event.target.value));
@@ -1325,14 +1566,21 @@ export function NetworkPath() {
                       {test.protocol}
                       {test.port && ` : ${test.port}`}
                     </span>
-                    <span className={test.reach ? "np-green" : "np-red"}>
-                      {test.reach ? "Reachable" : "Unreachable"}
+                    <span
+                      className={
+                        test.noData
+                          ? "np-muted"
+                          : test.reach
+                            ? "np-green"
+                            : "np-red"
+                      }
+                    >
+                      {statusOf(test)}
                     </span>
                     <IconButton
                       label={`Delete test ${test.destination}`}
                       onClick={() => {
                         setTests(tests.filter((item) => item.id !== test.id));
-                        setSelected(selected.filter((id) => id !== test.id));
                       }}
                     >
                       <X size={13} />
@@ -1352,32 +1600,28 @@ export function NetworkPath() {
               }}
             />
           )}
+          </div>
+          </div>
         </main>
       </div>
       {drawer && (
         <div className="np-overlay" onClick={() => setDrawer(null)}>
           <section
-            className={`np-drawer ${drawer === "map" ? "np-wide-drawer" : ""}`}
+            className="np-drawer"
             role="dialog"
             aria-modal="true"
             aria-label={
               drawer === "new"
-                ? "New Network Path Test"
-                : drawer === "map"
-                  ? "Multi-Test Map"
-                  : "Network Path Details"
+                ? t("New Network Path Test")
+                : t("Network Path Details")
             }
             onClick={(event) => event.stopPropagation()}
           >
             <header>
               <div>
-                <small>NETWORK PATH</small>
+                <small>{t("NETWORK PATH")}</small>
                 <h2>
-                  {drawer === "new"
-                    ? "New Test"
-                    : drawer === "map"
-                      ? "Multi-Test Map"
-                      : detail.destination}
+                  {drawer === "new" ? t("New Test") : detail.destination}
                 </h2>
               </div>
               <IconButton label="Close dialog" onClick={() => setDrawer(null)}>
@@ -1394,7 +1638,9 @@ export function NetworkPath() {
                     !newSource.trim()
                   ) {
                     setFormError(
-                      "Enter a valid hostname or IP address without a URL scheme.",
+                      t(
+                        "Enter a valid hostname or IP address without a URL scheme.",
+                      ),
                     );
                     return;
                   }
@@ -1404,7 +1650,7 @@ export function NetworkPath() {
                       Number(newPort) < 1 ||
                       Number(newPort) > 65535)
                   ) {
-                    setFormError("Port must be between 1 and 65535.");
+                    setFormError(t("Port must be between 1 and 65535."));
                     return;
                   }
                   const created = {
@@ -1415,6 +1661,7 @@ export function NetworkPath() {
                     port: newProtocol === "ICMP" ? "" : newPort,
                     reach: 0,
                     rtt: 0,
+                    noData: true,
                     site: "sh-dc1",
                     env: "production",
                     interval: newInterval,
@@ -1423,12 +1670,12 @@ export function NetworkPath() {
                   setDrawer(null);
                   setNewDestination("");
                   setNotice(
-                    "Test created in demo data. No network probe has been started.",
+                    "Test created in demo data. No network probe has been started.", // 渲染时翻译
                   );
                 }}
               >
                 <label>
-                  Source
+                  {t("Source")}
                   <input
                     required
                     value={newSource}
@@ -1436,20 +1683,20 @@ export function NetworkPath() {
                   />
                 </label>
                 <label>
-                  Destination
+                  {t("Destination")}
                   <input
                     autoFocus
                     required
-                    placeholder="Hostname or IP address"
+                    placeholder={t("Hostname or IP address")}
                     value={newDestination}
                     onChange={(event) => setNewDestination(event.target.value)}
                   />
                 </label>
                 <div className="np-form-grid">
                   <label>
-                    Protocol
+                    {t("Protocol")}
                     <select
-                      aria-label="Protocol"
+                      aria-label={t("Protocol")}
                       value={newProtocol}
                       onChange={(event) => setNewProtocol(event.target.value)}
                     >
@@ -1460,7 +1707,7 @@ export function NetworkPath() {
                   </label>
                   {newProtocol !== "ICMP" && (
                     <label>
-                      Port
+                      {t("Port")}
                       <input
                         type="number"
                         min="1"
@@ -1473,19 +1720,21 @@ export function NetworkPath() {
                   )}
                 </div>
                 <label>
-                  Test interval
+                  {t("Test interval")}
                   <select
-                    aria-label="Test interval"
+                    aria-label={t("Test interval")}
                     value={newInterval}
                     onChange={(event) => setNewInterval(event.target.value)}
                   >
-                    <option>1 minute</option>
-                    <option>5 minutes</option>
-                    <option>15 minutes</option>
+                    {["1 minute", "5 minutes", "15 minutes"].map((item) => (
+                      <option key={item} value={item}>
+                        {t(item)}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>
-                  Tags
+                  {t("Tags")}
                   <input
                     defaultValue="env:production, site:sh-dc1"
                     readOnly
@@ -1502,10 +1751,10 @@ export function NetworkPath() {
                     className="np-outline"
                     onClick={() => setDrawer(null)}
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button className="np-primary" type="submit">
-                    <Plus size={14} /> Create Test
+                    <Plus size={14} /> {t("Create Test")}
                   </button>
                 </div>
               </form>
@@ -1545,15 +1794,20 @@ export function NetworkPath() {
                     </small>
                   </>
                 )}
-                {(drawer === "map"
-                  ? tests.filter((test) => selected.includes(test.id))
-                  : [detail]
-                ).map((test) => (
+                {[detail].map((test) => (
                   <div key={test.id} className="np-route">
                     <div className="np-route-name">
                       <Destination name={test.destination} />
-                      <span className={test.reach ? "np-green" : "np-red"}>
-                        {test.reach ? "Reachable" : "Unreachable"}
+                      <span
+                        className={
+                          test.noData
+                            ? "np-muted"
+                            : test.reach
+                              ? "np-green"
+                              : "np-red"
+                        }
+                      >
+                        {statusOf(test)}
                       </span>
                     </div>
                     <div className="np-path-nodes">

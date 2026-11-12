@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import "@/lib/suppress-resize-observer-error";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkPathAnalysis } from "./network-path-analysis";
+import { PathTimeline } from "./network-path-timeline";
+import {
+  buildTimelineSlots,
+  slotCenter,
+  type TimelineBrush,
+} from "@/lib/network-path-timeline";
 import { CiLink } from "@/components/ci-link";
-import { cmdbByIp, cmdbByName } from "@/lib/cmdb";
+import { useNpI18n } from "@/lib/network-path-i18n";
+import { cityOf, cmdbByIp, cmdbByName } from "@/lib/cmdb";
 import {
   buildPathSnapshot,
-  type PathIssue,
   type PathStats,
 } from "@/lib/network-path-model";
 import {
   Activity,
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -29,7 +35,6 @@ import {
   Search,
   Server,
   Settings2,
-  Share2,
   Workflow,
   X,
 } from "lucide-react";
@@ -52,6 +57,48 @@ import {
 } from "@xyflow/react";
 import "@/app/network-path/network-path-detail.css";
 
+type DestinationMeta = {
+  hostname?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  timezone?: string;
+  deviceType?: string;
+  vendor?: string;
+  model?: string;
+};
+const PUBLIC_DESTINATIONS: Record<string, DestinationMeta> = {
+  "1.1.1.1": {
+    hostname: "one.one.one.one",
+    city: "Brisbane",
+    region: "Queensland",
+    country: "Australia",
+    timezone: "UTC+10:00",
+  },
+  "8.8.8.8": {
+    hostname: "dns.google",
+    city: "Mountain View",
+    region: "California",
+    country: "United States",
+    timezone: "UTC-08:00",
+  },
+};
+function destinationMeta(ip: string | undefined, fallback: string): DestinationMeta {
+  if (ip && PUBLIC_DESTINATIONS[ip]) return PUBLIC_DESTINATIONS[ip];
+  const ci = cmdbByIp.get(ip ?? "") ?? cmdbByName.get(fallback);
+  if (ci) {
+    return {
+      hostname: ci.name,
+      city: cityOf(ci.name)?.name,
+      country: "China",
+      timezone: "UTC+08:00",
+      deviceType: ci.type === "firewall" ? "Firewall" : "Switch",
+      vendor: ci.vendor,
+      model: ci.model,
+    };
+  }
+  return /[a-z]/i.test(fallback) ? { hostname: fallback } : {};
+}
 type PathTest = {
   id: string;
   source: string;
@@ -86,6 +133,7 @@ type HopData = {
   traversed: number;
   stats?: PathStats;
   issueCount?: number;
+  badge?: string;
   highlighted?: boolean;
   onSelect: () => void;
   onExpand?: () => void;
@@ -101,24 +149,25 @@ type GroupFrameNode = Node<
 >;
 
 function ExpandedGroupFrame({ data }: NodeProps<GroupFrameNode>) {
+  const { t } = useNpI18n();
   return (
     <div
       className="npd-group-boundary"
       role="group"
-      aria-label={`Expanded from ${data.label}`}
+      aria-label={`${t("Expanded from")} ${data.label}`}
     >
       <header>
         <Layers size={12} />
-        <span title={`Expanded from ${data.label}`}>
-          <small>Expanded from</small>
+        <span title={`${t("Expanded from")} ${data.label}`}>
+          <small>{t("Expanded from")}</small>
           <strong>{data.label}</strong>
         </span>
-        <small>{data.count} hops</small>
+        <small>{t(`${data.count} hops`)}</small>
         {data.onCollapse && (
           <button
             className="nodrag nopan"
-            title={`Collapse ${data.label}`}
-            aria-label={`Collapse group frame ${data.label}`}
+            title={t(`Collapse ${data.label}`)}
+            aria-label={t(`Collapse group frame ${data.label}`)}
             onClick={data.onCollapse}
           >
             <X size={13} />
@@ -129,60 +178,48 @@ function ExpandedGroupFrame({ data }: NodeProps<GroupFrameNode>) {
   );
 }
 
-function HopObservation({
-  data,
-  issues,
-  onIssue,
-}: {
-  data: HopData;
-  issues: PathIssue[];
-  onIssue: (id: string) => void;
-}) {
+function HopObservation({ data }: { data: HopData }) {
+  const { t } = useNpI18n();
+  const showRtt = Boolean(data.stats);
+  const showLoss = data.kind !== "source" && data.kind !== "unknown";
+  if (data.kind === "source" || (!showRtt && !showLoss)) return null;
   return (
-    <section className="npd-hop-observation" aria-label="Node observations">
-      <table aria-label="RTT statistics">
-        <caption>RTT latency</caption>
+    <section className="npd-hop-observation" aria-label={t("Node observations")}>
+      {showRtt && data.stats && (
+      <table aria-label={t("RTT statistics")}>
+        <caption>{t("RTT latency")}</caption>
         <thead>
           <tr>
             {["Latest", "Min", "Avg", "Max"].map((label) => (
-              <th key={label}>{label}</th>
+              <th key={label}>{t(label)}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           <tr>
             {(["latest", "min", "avg", "max"] as const).map((key) => (
-              <td key={key}>{data.stats ? `${data.stats[key]} ms` : "N/A"}</td>
+              <td key={key}>{`${data.stats![key]} ms`}</td>
             ))}
           </tr>
         </tbody>
       </table>
-      <div className="npd-observed-loss">
-        <span>
-          {data.kind === "destination"
-            ? "End-to-end packet loss"
-            : "Hop response loss"}
-        </span>
-        <strong>
-          {data.kind === "unknown" ? "N/A" : `${data.packetLoss || 0}%`}
-        </strong>
-      </div>
-      {issues.map((issue) => (
-        <button
-          key={issue.id}
-          className="npd-node-issue"
-          onClick={() => onIssue(issue.id)}
-        >
-          <AlertTriangle size={12} />
-          {issue.title}
-          <ChevronRight size={12} />
-        </button>
-      ))}
+      )}
+      {showLoss && (
+        <div className="npd-observed-loss">
+          <span>
+            {data.kind === "destination"
+              ? t("End-to-end packet loss")
+              : t("Hop response loss")}
+          </span>
+          <strong>{`${data.packetLoss || 0}%`}</strong>
+        </div>
+      )}
     </section>
   );
 }
 
 function HopCard({ data }: NodeProps<HopNode>) {
+  const { t } = useNpI18n();
   const Icon =
     data.kind === "source"
       ? Server
@@ -199,22 +236,37 @@ function HopCard({ data }: NodeProps<HopNode>) {
   const unreachable = data.kind === "destination" && loss === 100;
   if (data.kind === "unknown")
     return (
-      <div className="npd-unknown-node">
+      <div
+        className={`npd-unknown-node ${data.selected ? "selected" : ""} ${data.dimmed ? "dimmed" : ""}`}
+      >
         <Handle type="target" position={Position.Left} />
         <button
           className="nodrag nopan"
-          aria-label="Inspect Unknown"
+          aria-label={t(`Inspect Unknown, traversed ${data.traversed} times`)}
           onClick={data.onSelect}
         >
           <span />
         </button>
-        <small>Unknown</small>
+        <small>{t("Unknown")}</small>
+        <div className="npd-unknown-tip" role="tooltip">
+          <strong>{t("Unknown nodes")}</strong>
+          <div>
+            <span>
+              <Activity size={12} />
+              {t("Traversed count")}
+            </span>
+            <b>{data.traversed}</b>
+          </div>
+          <em>
+            {t("These hops aren't responding to traceroute requests likely because of a firewall or for security reasons.")}
+          </em>
+        </div>
         <Handle type="source" position={Position.Right} />
       </div>
     );
   return (
     <div
-      className={`npd-hop-card npd-kind-${data.kind} ${unreachable ? "unreachable" : loss > 0 ? "unstable" : ""} ${data.selected ? "selected" : ""} ${data.dimmed ? "dimmed" : ""} ${data.highlighted ? "issue-highlighted" : ""}`}
+      className={`npd-hop-card npd-kind-${data.kind} ${unreachable ? "unreachable" : loss > 0 ? "unstable" : ""} ${data.selected ? "selected" : ""} ${data.dimmed ? "dimmed" : ""} ${data.highlighted ? "issue-highlighted" : ""} ${data.children ? "stacked" : ""}`}
     >
       <Handle type="target" position={Position.Left} />
       <Handle id="in-top" type="target" position={Position.Top} />
@@ -222,19 +274,19 @@ function HopCard({ data }: NodeProps<HopNode>) {
         <div className="npd-unstable-label">
           <Activity size={10} />{" "}
           {unreachable
-            ? "Destination is unreachable"
+            ? t("Destination is unreachable")
             : data.kind !== "destination"
-              ? "Hop response warning"
+              ? t(data.badge ?? "Hop response warning")
               : loss > 0
-                ? "Destination is unstable"
-                : "Destination is reachable"}
+                ? t("Destination is unstable")
+                : t("Destination is reachable")}
         </div>
       )}
       <button
         className="npd-node-main nodrag nopan"
         onClick={data.children ? data.onExpand : data.onSelect}
         aria-label={
-          data.children ? `Expand group ${data.label}` : `Select ${data.label}`
+          data.children ? t(`Expand group ${data.label}`) : t(`Select ${data.label}`)
         }
       >
         <span className="npd-node-symbol">
@@ -245,19 +297,13 @@ function HopCard({ data }: NodeProps<HopNode>) {
           {data.subtitle && (
             <small title={data.subtitle}>{data.subtitle}</small>
           )}
-          {data.children && <small>{data.children} child nodes</small>}
-          {Boolean(data.issueCount) && (
-            <small className="npd-node-warning">
-              <AlertTriangle size={10} />
-              {data.issueCount} issue{data.issueCount === 1 ? "" : "s"}
-            </small>
-          )}
+          {data.children && <small>{t(`${data.children} child nodes`)}</small>}
         </span>
       </button>
       {data.children ? (
         <button
           className="npd-node-expand nodrag nopan"
-          aria-label={`Expand ${data.label}`}
+          aria-label={t(`Expand ${data.label}`)}
           onClick={data.onExpand}
         >
           <Layers size={10} />
@@ -266,14 +312,14 @@ function HopCard({ data }: NodeProps<HopNode>) {
       ) : null}
       {data.kind !== "source" && (
         <div className="npd-node-metrics">
-          {data.kind === "destination" && <span>{loss}% Packet Loss</span>}
+          {data.kind === "destination" && <span>{loss}% {t("Packet Loss")}</span>}
           <span>{data.latency === null ? "N/A" : data.latency} ms</span>
         </div>
       )}
       {(data.kind === "source" || data.kind === "destination") && (
         <small className="npd-node-caption">
           <Info size={8} />
-          {data.kind === "source" ? "Source" : "Destination"}
+          {data.kind === "source" ? t("Source") : t("Destination")}
         </small>
       )}
       <Handle type="source" position={Position.Right} />
@@ -293,6 +339,7 @@ function LatencyEdge({
   data,
   markerEnd,
 }: EdgeProps) {
+  const { t } = useNpI18n();
   const [path, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -329,7 +376,7 @@ function LatencyEdge({
           >
             {String(latency)} ms
             {Number(data?.packetLoss || 0) > 0 &&
-              ` · ${data?.packetLoss}% response loss`}
+              ` · ${data?.packetLoss}% ${t("response loss")}`}
           </span>
         </EdgeLabelRenderer>
       )}
@@ -354,6 +401,7 @@ function MapTools({
   settingsOpen: boolean;
 }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const { t } = useNpI18n();
   return (
     <div className="npd-map-tools">
       {[
@@ -376,8 +424,8 @@ function MapTools({
       ].map((tool) => (
         <button
           key={tool.name}
-          title={tool.name}
-          aria-label={tool.name}
+          title={t(tool.name)}
+          aria-label={t(tool.name)}
           aria-expanded={
             tool.name === "Latency Edge Coloring" ? settingsOpen : undefined
           }
@@ -404,12 +452,14 @@ export function NetworkPathDetail(props: DetailProps) {
 }
 
 function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
+  const { t, isZh } = useNpI18n();
   const [activeTab, setActiveTab] = useState("Path View");
   const [query, setQuery] = useState("");
   const [hideUnknown, setHideUnknown] = useState(true);
-  const [groupBy, setGroupBy] = useState("IP Address");
+  const [groupBy, setGroupBy] = useState("ASN");
   const [showGroupMenu, setShowGroupMenu] = useState(false);
-  const [hoveredGroup, setHoveredGroup] = useState("IP Address");
+  const [hoveredGroup, setHoveredGroup] = useState("ASN");
+  const [brush, setBrush] = useState<TimelineBrush | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [selectedHop, setSelectedHop] = useState<string | null>(null);
   const [inspectedHop, setInspectedHop] = useState<string | null>(null);
@@ -418,10 +468,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [latencyThreshold, setLatencyThreshold] = useState(7);
   const [nameCopied, setNameCopied] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState("");
-  const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
-  const [issuesOpen, setIssuesOpen] = useState(false);
   const [hoveredHop, setHoveredHop] = useState<string | null>(null);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { fitView } = useReactFlow();
@@ -458,16 +504,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     };
   }, [activeTab]);
   useEffect(() => {
-    // React Flow 内部的 ResizeObserver 也会触发该无害告警，这里统一拦截
-    const swallow = (event: ErrorEvent) => {
-      if (event.message?.includes("ResizeObserver loop")) {
-        event.stopImmediatePropagation();
-      }
-    };
-    window.addEventListener("error", swallow);
-    return () => window.removeEventListener("error", swallow);
-  }, []);
-  useEffect(() => {
     const dismiss = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setSelectedHop(null);
@@ -488,17 +524,6 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     hideUnknown,
   );
   const { loss } = snapshot;
-  const activeIssue = snapshot.issues.find(
-    (issue) => issue.id === activeIssueId,
-  );
-  const highlightedEdges = new Set(activeIssue?.edgeIds || []);
-  const highlightedNodes = new Set(activeIssue?.nodeIds || []);
-  snapshot.links
-    .filter((link) => highlightedEdges.has(link.id))
-    .forEach((link) => {
-      highlightedNodes.add(link.from);
-      highlightedNodes.add(link.to);
-    });
   const duration = (rangeMinutes[range] || 240) * 60000;
   const endTime =
     new Date("2026-10-13T10:24:00Z").getTime() + timeOffset * duration;
@@ -509,9 +534,17 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       hour: "2-digit",
       minute: "2-digit",
     }).format(timestamp);
-  const timeLabels = Array.from({ length: 16 }, (_, index) =>
-    formatTime(startTime + (duration * index) / 15),
-  );
+  const formatStamp = (timestamp: number) =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Hong_Kong",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(timestamp);
+  const slots = useMemo(() => buildTimelineSlots(144), []);
+  const slotTime = (index: number) =>
+    startTime + slotCenter(slots[index]) * duration;
   const expandableIds = snapshot.groups.map((group) => group.id);
   const allExpanded =
     expandableIds.length > 0 &&
@@ -532,19 +565,40 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
     setInspectedHop(null);
     refit();
   };
-  const selectSample = (sample: number | null) => {
+  const stepSample = (direction: -1 | 1) => {
+    let index = (selectedTime ?? 143) + (selectedTime === null ? -1 : 0);
+    do {
+      index += direction;
+    } while (index >= 0 && index <= 143 && slots[index].missing);
+    if (index >= 0 && index <= 143) selectSample(index);
+  };
+  const handleBrush = (next: TimelineBrush, commit: boolean) => {
+    setBrush(next);
+    if (!commit) return;
+    const inRange = history.filter(
+      (_, index) =>
+        !slots[index].missing &&
+        slotCenter(slots[index]) >= next.from &&
+        slotCenter(slots[index]) <= next.to,
+    );
+    if (!inRange.length) return;
+    const worstIndex = history.indexOf(
+      inRange.reduce((worst, item) =>
+        item.reach < worst.reach ||
+        (item.reach === worst.reach && (item.rtt ?? 0) > (worst.rtt ?? 0))
+          ? item
+          : worst,
+      ),
+    );
+    selectSample(worstIndex, true);
+  };
+  const selectSample = (sample: number | null, keepBrush = false) => {
+    if (!keepBrush) setBrush(null);
     setSelectedTime(sample);
     setSelectedHop(null);
     setHoveredHop(null);
     setInspectedHop(null);
-    setActiveIssueId(null);
     refit();
-  };
-  const focusIssue = (id: string) => {
-    setActiveIssueId((current) => (current === id ? null : id));
-    setSelectedHop(null);
-    setHoveredHop(null);
-    setIssuesOpen(true);
   };
   const nodes: HopNode[] = snapshot.hops.map((hop) => ({
     id: hop.id,
@@ -564,14 +618,15 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
       issueCount: snapshot.issues.filter((issue) =>
         issue.nodeIds.includes(hop.id),
       ).length,
-      highlighted: highlightedNodes.has(hop.id),
+      badge: snapshot.issues.find((issue) => issue.nodeIds.includes(hop.id))
+        ?.badge,
+      highlighted: false,
       selected: selectedHop === hop.id || inspectedHop === hop.id,
       dimmed: Boolean(
-        (query &&
+        query &&
           !`${hop.label} ${hop.asn}`
             .toLowerCase()
-            .includes(query.toLowerCase())) ||
-        (activeIssue && !highlightedNodes.has(hop.id)),
+            .includes(query.toLowerCase()),
       ),
       onSelect: () => {
         setSelectedHop(hop.id);
@@ -622,14 +677,20 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
         color,
         complete: link.complete,
         packetLoss: link.packetLoss,
-        highlighted: highlightedEdges.has(link.id),
-        dimmed: Boolean(activeIssue && !highlightedEdges.has(link.id)),
-        width: 1 + (3 * (link.count - 1)) / 6839,
+        highlighted: false,
+        dimmed: false,
+        width:
+          1.5 + (4.5 * Math.log10(Math.max(1, link.count))) / Math.log10(6840),
       },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 10, height: 10 },
     };
   });
-  const hop = nodes.find((node) => node.id === (selectedHop || hoveredHop));
+  const activeHopId = selectedHop || hoveredHop;
+  const hop = nodes.find(
+    (node) =>
+      node.id === activeHopId &&
+      (node.data.kind !== "unknown" || selectedHop === activeHopId),
+  );
   const inspectedNode = nodes.find((node) => node.id === inspectedHop);
   const popoverLeft = hop
     ? Math.max(
@@ -656,34 +717,28 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
   const timeText =
     selectedTime === null
       ? `${formatTime(startTime)} – ${formatTime(endTime)} (UTC+08:00)`
-      : `${formatTime(startTime + (duration * selectedTime) / 143)} · Sample ${selectedTime + 1}`;
+      : `${formatTime(slotTime(selectedTime))} · ${isZh ? "样本" : "Sample"} ${selectedTime + 1}`;
   const graphTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Hong_Kong",
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(
-    selectedTime === null
-      ? endTime
-      : startTime + (duration * selectedTime) / 143,
-  );
-  const history = Array.from({ length: 144 }, (_, index) =>
-    buildPathSnapshot(test, index, "ASN", [], true),
+  }).format(selectedTime === null ? endTime : slotTime(selectedTime));
+  const history = useMemo(
+    () =>
+      Array.from({ length: 144 }, (_, index) =>
+        buildPathSnapshot(test, index, "ASN", [], true),
+      ),
+    [test],
   );
   const renderObservations = (node: HopNode) => (
-    <HopObservation
-      data={node.data}
-      issues={snapshot.issues.filter((issue) =>
-        issue.nodeIds.includes(node.id),
-      )}
-      onIssue={focusIssue}
-    />
+    <HopObservation data={node.data} />
   );
 
   return (
-    <section className="npd-detail" aria-label="Network Path Details">
+    <section className="npd-detail" aria-label={t("Network Path Details")}>
       <div className="npd-breadcrumb">
         <button className="np-outline" onClick={onBack}>
-          <ArrowLeft size={13} /> Back to List
+          <ArrowLeft size={13} /> {t("Back to List")}
         </button>
         <strong>{test.source}</strong>
         <ArrowRight size={14} />
@@ -691,32 +746,8 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           <Globe size={12} />
           {test.destination}
         </span>
-        <div className="npd-actions">
-          <button
-            className="npd-share"
-            onClick={async () => {
-              try {
-                const url = new URL(location.href);
-                url.searchParams.set("test", test.id);
-                await navigator.clipboard.writeText(url.toString());
-                setCopied(true);
-                setCopyError("");
-              } catch {
-                setCopyError("Copy unavailable. Test ID: " + test.id);
-              }
-            }}
-          >
-            {copied ? <Check size={12} /> : <Share2 size={12} />}
-            {copied ? "Link copied" : "Share"}
-          </button>
-        </div>
       </div>
-      {copyError && (
-        <div className="npd-copy-error" role="status">
-          {copyError}
-        </div>
-      )}
-      <div className="npd-tabs" role="tablist" aria-label="Path detail views">
+      <div className="npd-tabs" role="tablist" aria-label={t("Path detail views")}>
         {[
           {
             name: "Path View",
@@ -730,7 +761,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           <button
             role="tab"
             aria-selected={activeTab === item.name}
-            title={item.subtitle}
+            title={t(item.subtitle)}
             className={activeTab === item.name ? "active" : ""}
             key={item.name}
             onClick={() => {
@@ -738,7 +769,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               setQuery("");
             }}
           >
-            {item.name}
+            {t(item.name)}
           </button>
         ))}
       </div>
@@ -746,13 +777,13 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
         <div className="npd-search">
           <Search size={13} />
           <input
-            aria-label="Search hops"
-            placeholder="Search hops"
+            aria-label={t("Search hops")}
+            placeholder={t("Search hops")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
           {query && (
-            <button aria-label="Clear hop search" onClick={() => setQuery("")}>
+            <button aria-label={t("Clear hop search")} onClick={() => setQuery("")}>
               <X size={11} />
             </button>
           )}
@@ -770,7 +801,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               }}
             />
             <span />
-            Hide unknown hops
+            {t("Hide unknown hops")}
           </label>
           <button
             className="np-outline"
@@ -784,26 +815,26 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
             }}
           >
             <Expand size={12} />
-            {allExpanded ? "Collapse all groups" : "Expand all groups"}
+            {t(allExpanded ? "Collapse all groups" : "Expand all groups")}
           </button>
           <div className="npd-group-label">
-            <span>Group by</span>
+            <span>{t("Group by")}</span>
             <button
               role="combobox"
-              aria-label="Group hops by"
+              aria-label={t("Group hops by")}
               aria-haspopup="listbox"
               aria-expanded={showGroupMenu}
               aria-controls="npd-group-options"
               onClick={() => setShowGroupMenu(!showGroupMenu)}
             >
-              {groupBy}
+              {t(groupBy)}
               <ChevronDown size={12} />
             </button>
             {showGroupMenu && (
               <div className="npd-group-menu">
                 <div
                   role="listbox"
-                  aria-label="Hop grouping options"
+                  aria-label={t("Hop grouping options")}
                   id="npd-group-options"
                 >
                   {["IP Address", "ASN"].map((option) => (
@@ -823,16 +854,18 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                         refit();
                       }}
                     >
-                      {option}
+                      {t(option)}
                     </button>
                   ))}
                 </div>
                 <div>
-                  <b>{hoveredGroup}</b>
+                  <b>{t(hoveredGroup)}</b>
                   <p>
-                    {hoveredGroup === "IP Address"
-                      ? "The default grouping for Network Path. Groups hops based on IP Address metadata."
-                      : "Groups hops belonging to the same Autonomous System Number."}
+                    {t(
+                      hoveredGroup === "IP Address"
+                        ? "The default grouping for Network Path. Groups hops based on IP Address metadata."
+                        : "Groups hops belonging to the same Autonomous System Number.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -847,51 +880,48 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
           >
             <Activity size={12} />
             {snapshot.reach === 0
-              ? "Unreachable"
+              ? t("Unreachable")
               : snapshot.issues.length
-                ? "Warning"
-                : "Healthy"}
+                ? t("Warning")
+                : t("Healthy")}
           </span>
           <span className="npd-snapshot-time">
-            {selectedTime === null ? "Latest" : "Historical"} · {graphTime}{" "}
+            {t(selectedTime === null ? "Latest" : "Historical")} · {graphTime}{" "}
             (UTC+08:00)
           </span>
           {groupBy === "ASN" && expanded.length > 0 && (
-            <div className="npd-expanded-groups" aria-label="Expanded groups">
-              <span>Expanded:</span>
+            <div className="npd-expanded-groups" aria-label={t("Expanded groups")}>
+              <span>{t("Expanded:")}</span>
               {snapshot.groups
                 .filter((group) => expanded.includes(group.id))
                 .map((group) => (
                   <button
                     key={group.id}
-                    title={`Collapse ${group.label}`}
-                    aria-label={`Collapse ${group.label}`}
+                    title={t(`Collapse ${group.label}`)}
+                    aria-label={t(`Collapse ${group.label}`)}
                     onClick={() => toggleGroup(group.id)}
                   >
                     {group.id === "location"
-                      ? "Hong Kong"
+                      ? t("Hong Kong")
                       : group.id.toUpperCase()}{" "}
                     ({group.count})<X size={11} />
                   </button>
                 ))}
             </div>
           )}
-          <button
-            className="npd-issues-toggle"
-            aria-expanded={issuesOpen}
-            onClick={() => {
-              setIssuesOpen(!issuesOpen);
-              if (issuesOpen) setActiveIssueId(null);
-            }}
-          >
-            <AlertTriangle size={13} />
-            Issues ({snapshot.issues.length})
-          </button>
         </div>
       )}
       <div className="npd-body">
         {activeTab === "Path View" ? (
-          <div className="npd-canvas" ref={canvasRef}>
+              <div className="npd-canvas" ref={canvasRef}>
+                {brush && (
+                  <div className="npd-range-banner" role="status">
+                    {t("Filtered time range:")}{" "}
+                    {formatStamp(startTime + brush.from * duration)} -{" "}
+                    {formatStamp(startTime + brush.to * duration)} ·{" "}
+                    {t("showing the worst sample in range")}
+                  </div>
+                )}
             <ReactFlow<HopNode | GroupFrameNode>
               nodes={[...groupFrames, ...nodes]}
               edges={edges}
@@ -904,7 +934,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               nodesConnectable={false}
               elementsSelectable={false}
               proOptions={{ hideAttribution: true }}
-              aria-label="Network path topology"
+              aria-label={t("Network path topology")}
               onNodeMouseEnter={(_, node) => {
                 if (node.type !== "hop") return;
                 if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
@@ -925,12 +955,12 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               }}
             />
             <div className="npd-filtered-time">
-              Filtered time range: {timeText}
+              {t("Filtered time range:")} {timeText}
             </div>
             <button
               className="npd-map-info"
-              title="Path legend"
-              aria-label="Path legend"
+              title={t("Path legend")}
+              aria-label={t("Path legend")}
               aria-expanded={showLegend}
               onClick={() => setShowLegend(!showLegend)}
             >
@@ -940,19 +970,19 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               <div
                 className="npd-legend"
                 role="region"
-                aria-label="Path legend details"
+                aria-label={t("Path legend details")}
               >
-                <b>Width: Traversal count</b>
+                <b>{t("Width: Traversal count")}</b>
                 <div className="npd-legend-width">
-                  <span>Min: 1</span>
-                  <span>Max: 6840</span>
+                  <span>{t("Min:")} 1</span>
+                  <span>{t("Max:")} 6840</span>
                 </div>
-                <b>Stroke: Traversal completion</b>
+                <b>{t("Stroke: Traversal completion")}</b>
                 <div className="npd-legend-strokes">
-                  <span>Complete</span>
-                  <span>Incomplete</span>
+                  <span>{t("Complete")}</span>
+                  <span>{t("Incomplete")}</span>
                 </div>
-                <b>Colors</b>
+                <b>{t("Colors")}</b>
                 {[
                   ["#3bc46d", "Destination Reachable"],
                   ["#f5a000", "Unstable Reachability"],
@@ -964,7 +994,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                     <i
                       style={{ background: color, height: index > 2 ? 2 : 15 }}
                     />
-                    {label}
+                    {t(label)}
                   </div>
                 ))}
               </div>
@@ -977,17 +1007,17 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               <div
                 className="npd-map-settings"
                 role="region"
-                aria-label="Latency threshold settings"
+                aria-label={t("Latency threshold settings")}
               >
-                <b>Latency Edge Coloring</b>
+                <b>{t("Latency Edge Coloring")}</b>
                 <div className="npd-threshold-value">
                   <span>
                     <i />
-                    High
+                    {t("High")}
                   </span>
                   <span className="npd-threshold-operator">≥</span>
                   <input
-                    aria-label="High latency threshold"
+                    aria-label={t("High latency threshold")}
                     type="number"
                     min="0"
                     max="1000"
@@ -1001,7 +1031,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                   <span>ms</span>
                 </div>
                 <input
-                  aria-label="Latency threshold slider"
+                  aria-label={t("Latency threshold slider")}
                   type="range"
                   min="0"
                   max={Math.max(300, latencyThreshold)}
@@ -1020,7 +1050,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
               <div
                 className="npd-node-popover"
                 role="dialog"
-                aria-label={`Node ${hop.data.label}`}
+                aria-label={`${t("Node")} ${hop.data.label}`}
                 style={{
                   left: popoverLeft,
                   top: popoverTop,
@@ -1036,7 +1066,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                 <header>
                   <strong>{hop.data.label}</strong>
                   <button
-                    aria-label="Close node popover"
+                    aria-label={t("Close node popover")}
                     onClick={() => {
                       setSelectedHop(null);
                       setHoveredHop(null);
@@ -1046,22 +1076,33 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                   </button>
                 </header>
                 {renderObservations(hop)}
-                <dl>
-                  {[
+                <div className="npd-traversed">
+                  <Activity size={13} />
+                  <span>{t("Traversed count")}</span>
+                  <strong>{hop.data.traversed}</strong>
+                </div>
+                {(() => {
+                  const isDestination = hop.data.kind === "destination";
+                  const meta = isDestination
+                    ? destinationMeta(hop.data.ip, test.destination)
+                    : {};
+                  const identityRows: [string, string | undefined][] = [
                     ["IP Address", hop.data.ip],
                     [
                       "Hostname",
-                      hop.data.kind === "source" ? test.source : undefined,
+                      hop.data.kind === "source" ? test.source : meta.hostname,
                     ],
                     ["AS Name", hop.data.asName],
                     [
                       "City",
-                      hop.data.kind === "source" ? "Shanghai" : undefined,
+                      hop.data.kind === "source" ? "Shanghai" : meta.city,
                     ],
+                    ["Region", meta.region],
                     [
                       "Country",
-                      hop.data.kind === "source" ? "China" : undefined,
+                      hop.data.kind === "source" ? "China" : meta.country,
                     ],
+                    ["Timezone", meta.timezone],
                     [
                       "AS Number",
                       hop.data.kind === "source"
@@ -1070,20 +1111,42 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                           ? hop.data.asn
                           : undefined,
                     ],
-                  ]
-                    .filter(([, value]) => value)
-                    .map(([label, value]) => (
-                      <div key={label}>
-                        <dt>{label}</dt>
-                        <dd title={value}>{value}</dd>
-                      </div>
-                    ))}
-                </dl>
-                <div className="npd-traversed">
-                  <Activity size={13} />
-                  <span>Traversed count</span>
-                  <strong>{hop.data.traversed}</strong>
-                </div>
+                    ["Device type", meta.deviceType],
+                    ["Vendor", meta.vendor],
+                    ["Model", meta.model],
+                  ];
+                  const testRows: [string, string | undefined][] = isDestination
+                    ? [
+                        ["Protocol", test.protocol],
+                        ["Port", test.port || undefined],
+                        ["Reachability", `${snapshot.reach}%`],
+                        ["Site", test.site],
+                        ["Environment", test.env],
+                      ]
+                    : [];
+                  const renderRows = (rows: [string, string | undefined][]) =>
+                    rows
+                      .filter(([, value]) => value)
+                      .map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{t(label)}</dt>
+                          <dd title={value}>{t(value as string)}</dd>
+                        </div>
+                      ));
+                  return (
+                    <>
+                      <dl>{renderRows(identityRows)}</dl>
+                      {testRows.length > 0 && (
+                        <>
+                          <div className="npd-popover-subhead">
+                            {t("Test configuration")}
+                          </div>
+                          <dl>{renderRows(testRows)}</dl>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
                 <button
                   className="np-primary npd-inspect-button"
                   onClick={() => {
@@ -1092,7 +1155,7 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                     setHoveredHop(null);
                   }}
                 >
-                  Inspect
+                  {t("Inspect")}
                 </button>
                 <button
                   className="npd-copy-name"
@@ -1100,19 +1163,18 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                     try {
                       await navigator.clipboard.writeText(hop.data.label);
                       setNameCopied(true);
-                      setCopyError("");
                     } catch {
-                      setCopyError("Copy unavailable. Name: " + hop.data.label);
+                      setNameCopied(false);
                     }
                   }}
                 >
                   {nameCopied ? <Check size={12} /> : <Copy size={12} />}
-                  {nameCopied ? "Copied" : "Copy Name"}
+                  {t(nameCopied ? "Copied" : "Copy Name")}
                 </button>
               </div>
             )}
             {query && !nodes.some((node) => !node.data.dimmed) && (
-              <div className="npd-no-hops">No hops match “{query}”</div>
+              <div className="npd-no-hops">{isZh ? `没有匹配“${query}”的跳点` : `No hops match “${query}”`}</div>
             )}
           </div>
         ) : (
@@ -1131,9 +1193,9 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
         {inspectedNode && activeTab === "Path View" && (
           <aside className="npd-inspector">
             <header>
-              <h3>Hop Details</h3>
+              <h3>{t("Hop Details")}</h3>
               <button
-                aria-label="Close path panel"
+                aria-label={t("Close path panel")}
                 onClick={() => {
                   setInspectedHop(null);
                 }}
@@ -1180,85 +1242,35 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
                   ["Child nodes", String(inspectedNode.data.children || 0)],
                 ].map(([label, value]) => (
                   <div className="npd-hop-property" key={label}>
-                    <span>{label}</span>
-                    <strong>{value}</strong>
+                    <span>{t(label)}</span>
+                    <strong>{t(value)}</strong>
                   </div>
                 ))}
                 <small className="npd-simulation-note">
-                  Illustrative route · simulated data
+                  {t("Illustrative route · simulated data")}
                 </small>
               </>
             )}
           </aside>
         )}
       </div>
-      {activeTab === "Path View" && issuesOpen && (
-        <section className="npd-issues-panel" aria-label="Path issues">
-          <header>
-            <strong>Issues ({snapshot.issues.length})</strong>
-            <span>
-              {graphTime} · Observed conditions, not a root-cause verdict
-            </span>
-            <button
-              aria-label="Close issues"
-              onClick={() => {
-                setIssuesOpen(false);
-                setActiveIssueId(null);
-              }}
-            >
-              <X size={13} />
-            </button>
-          </header>
-          {snapshot.issues.length === 0 ? (
-            <p>No issues in this snapshot</p>
-          ) : (
-            snapshot.issues.map((issue) => (
-              <button
-                key={issue.id}
-                className={`npd-issue-row ${issue.severity}`}
-                aria-pressed={activeIssueId === issue.id}
-                onClick={() => focusIssue(issue.id)}
-              >
-                <AlertTriangle size={15} />
-                <span>
-                  <strong>{issue.title}</strong>
-                  <small>{issue.observed}</small>
-                  <small>
-                    {issue.condition} · {graphTime}
-                  </small>
-                </span>
-                <span>
-                  {activeIssueId === issue.id ? "Clear highlight" : "Locate"}
-                  <ChevronRight size={12} />
-                </span>
-              </button>
-            ))
-          )}
-        </section>
-      )}
       {activeTab === "Path View" && (
         <div className="npd-history-heading">
-          <strong>Path History</strong>
-          <span>Graph shows: {graphTime} (UTC+08:00)</span>
+          <strong>{t("Path History")}</strong>
+          <span>{t("Graph shows:")} {graphTime} (UTC+08:00)</span>
           <button
-            title="Previous sample"
-            aria-label="Previous sample"
-            onClick={() =>
-              selectSample(
-                selectedTime === null ? 142 : Math.max(0, selectedTime - 1),
-              )
-            }
+            title={t("Previous sample")}
+            aria-label={t("Previous sample")}
+            onClick={() => stepSample(-1)}
             disabled={selectedTime === 0}
           >
             <ArrowLeft size={13} />
           </button>
           <button
-            title="Next sample"
-            aria-label="Next sample"
+            title={t("Next sample")}
+            aria-label={t("Next sample")}
             disabled={selectedTime === null || selectedTime === 143}
-            onClick={() =>
-              selectSample(Math.min(143, (selectedTime ?? 142) + 1))
-            }
+            onClick={() => stepSample(1)}
           >
             <ArrowRight size={13} />
           </button>
@@ -1267,72 +1279,28 @@ function PathDetailContent({ test, range, timeOffset, onBack }: DetailProps) {
             aria-pressed={selectedTime === null}
             onClick={() => selectSample(null)}
           >
-            Latest
+            {t("Latest")}
           </button>
         </div>
       )}
       {activeTab === "Path View" && (
         <div className="npd-timeline">
-          <div className="npd-timeline-labels">
-            <span>Latency</span>
-            <span>Reachability</span>
-          </div>
-          <div className="npd-timeline-main">
-            <div className="npd-timeline-cells">
-              {history.map((historical, index) => (
-                <button
-                  aria-label={`Select time sample ${index + 1}`}
-                  aria-pressed={selectedTime === index}
-                  title={`${formatTime(startTime + (duration * index) / 143)} · RTT ${historical.rtt === null ? "N/A" : `${historical.rtt} ms`} · Reachability ${historical.reach}% · Issues ${historical.issues.length}`}
-                  key={index}
-                  className={selectedTime === index ? "selected" : ""}
-                  onClick={() =>
-                    selectSample(selectedTime === index ? null : index)
-                  }
-                >
-                  <i
-                    style={{
-                      background:
-                        historical.reach === 0
-                          ? "#f7b5b5"
-                          : historical.phase === "degraded"
-                            ? "#e6ecc4"
-                            : "#83d497",
-                    }}
-                  />
-                  <i
-                    style={{
-                      background:
-                        historical.reach === 0
-                          ? "#f3a8a8"
-                          : historical.loss > 1
-                            ? "#f2d58d"
-                            : "#a7dfb6",
-                    }}
-                  />
-                </button>
-              ))}
-            </div>
-            <div className="npd-time-labels">
-              {timeLabels.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
-            </div>
-            <input
-              className="npd-history-slider"
-              type="range"
-              aria-label="History sample"
-              min="0"
-              max="143"
-              value={selectedTime ?? 143}
-              onChange={(event) => selectSample(Number(event.target.value))}
-            />
-          </div>
-          {selectedTime !== null && (
+          <PathTimeline
+            history={history}
+            slots={slots}
+            start={startTime}
+            end={endTime}
+            selectedIndex={selectedTime}
+            brush={brush}
+            formatTime={formatStamp}
+            onSelect={(index) => selectSample(index)}
+            onBrush={handleBrush}
+          />
+          {(selectedTime !== null || brush) && (
             <button
               className="npd-clear-time"
-              title="Clear time selection"
-              aria-label="Clear time selection"
+              title={t("Clear time selection")}
+              aria-label={t("Clear time selection")}
               onClick={() => selectSample(null)}
             >
               <X size={12} />
