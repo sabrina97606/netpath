@@ -6,8 +6,8 @@ import {
   Activity, ArrowDownUp, Bell, Box, ChevronDown, Cloud, DatabaseBackup, Database, GitCompare,
   Home, Layers, Map, Network, Search, Settings, ShieldCheck, Workflow, X,
 } from "lucide-react";
-import { devices, NOW, SCRIPTS, RULES, computeCompliance, diffStats, formatTime, initialBackup, initialJobs, initialVersions, latestOf, ruleById } from "@/lib/ncm-data";
-import type { BackupInfo, ConfigVersion, Job } from "@/lib/ncm-data";
+import { devices, NOW, SCRIPTS, RULES, POLICIES, buildRule, computeCompliance, diffStats, formatTime, initialBackup, initialJobs, initialVersions, latestOf } from "@/lib/ncm-data";
+import type { BackupInfo, ConfigVersion, Job, Policy, Rule, RuleSpec } from "@/lib/ncm-data";
 import { NcmBackups } from "@/components/ncm-backups";
 import { NcmCompare, type CompareFocus } from "@/components/ncm-compare";
 import { NcmCompliance } from "@/components/ncm-compliance";
@@ -41,6 +41,8 @@ export function NcmDashboard() {
   const [backups, setBackups] = useState<Record<string, BackupInfo>>(() => Object.fromEntries(devices.map(item => [item.name, initialBackup(item)])));
   const [jobs, setJobs] = useState<Job[]>(initialJobs);
   const [alerts, setAlerts] = useState<AlertConfig>({ enabled: true, recipients: "netops@doop.example, secops@doop.example" });
+  const [customRules, setCustomRules] = useState<Rule[]>([]);
+  const [policyList, setPolicyList] = useState<Policy[]>(POLICIES);
   const [acked, setAcked] = useState<Record<string, boolean>>({});
   const [backupStatus, setBackupStatus] = useState("all");
   const [focus, setFocus] = useState<CompareFocus>({ device: devices[0].name, stamp: 0 });
@@ -63,7 +65,11 @@ export function NcmDashboard() {
   const appendVersion = (list: ConfigVersion[], source: ConfigVersion["source"], ref: string, lines: string[], author = "admin"): ConfigVersion[] =>
     [...list, { number: list.length + 1, at: tick(), author, source, ref, lines }];
 
-  const compliance = useMemo(() => computeCompliance(versions), [versions]);
+  const rules = useMemo(() => [...RULES, ...customRules], [customRules]);
+  const rulesRef = useRef(rules);
+  rulesRef.current = rules;
+  const nextRuleId = useRef(1);
+  const compliance = useMemo(() => computeCompliance(versions, rules, policyList), [versions, rules, policyList]);
   const events = useMemo<ChangeEvent[]>(() => devices.flatMap(item => versions[item.name].slice(1).map((version, index) => ({
     key: `${item.name}-v${version.number}`, device: item.name, number: version.number, at: version.at, author: version.author,
     source: version.source, ref: version.ref, authorized: version.source !== "Out-of-band",
@@ -106,14 +112,30 @@ export function NcmDashboard() {
     for (const device of new Set(targets.map(target => target.device))) {
       const ids = targets.filter(target => target.device === device).map(target => target.ruleId);
       const before = latestOf(next[device]).lines;
-      const after = ids.reduce((lines, id) => ruleById.get(id)!.fix(lines), before);
+      const picked = ids.map(id => rulesRef.current.find(rule => rule.id === id)!);
+      const after = picked.reduce((lines, rule) => rule.fix(lines), before);
       if (after.join("\n") !== before.join("\n")) {
-        next[device] = appendVersion(next[device], "Remediation", `Fixed ${ids.map(id => ruleById.get(id)!.title).join("; ")}`, after);
+        next[device] = appendVersion(next[device], "Remediation", `Fixed ${picked.map(rule => rule.title).join("; ")}`, after);
         changed++;
       }
     }
     setVersions(next);
     setNotice(`Remediation pushed to ${changed} device${changed === 1 ? "" : "s"}`);
+  };
+
+  const addRule = (spec: RuleSpec, policyIds: string[]) => {
+    const rule = buildRule(`custom-${nextRuleId.current++}`, spec);
+    const failing = devices.filter(item => !rule.check(latestOf(versions[item.name]).lines)).length;
+    setCustomRules(previous => [...previous, rule]);
+    setPolicyList(previous => previous.map(policy => (policyIds.includes(policy.id) ? { ...policy, ruleIds: [...policy.ruleIds, rule.id] } : policy)));
+    setNotice(`Rule "${rule.title}" added. ${failing} of ${devices.length} devices currently fail it.`);
+  };
+
+  const removeRule = (ruleId: string) => {
+    const rule = rulesRef.current.find(item => item.id === ruleId);
+    setCustomRules(previous => previous.filter(item => item.id !== ruleId));
+    setPolicyList(previous => previous.map(policy => ({ ...policy, ruleIds: policy.ruleIds.filter(id => id !== ruleId) })));
+    setNotice(`Rule "${rule?.title}" deleted`);
   };
 
   const runJob = (scriptId: string, targets: string[]) => {
@@ -227,7 +249,7 @@ export function NcmDashboard() {
               {tab === "backup" && (
                 <>
                   <NcmBackups
-                    devices={devices} backups={backups} versions={versions} events={events} acked={acked} jobs={jobs} alerts={alerts}
+                    devices={devices} backups={backups} versions={versions} rules={rules} events={events} acked={acked} jobs={jobs} alerts={alerts}
                     status={backupStatus} now={clock.current}
                     onStatus={setBackupStatus} onBackup={runBackups} onCompare={openCompare} onDeploy={deployConfig} onRunScript={runJob}
                     onAck={keys => setAcked(previous => ({ ...previous, ...Object.fromEntries(keys.map(key => [key, true])) }))}
@@ -238,7 +260,8 @@ export function NcmDashboard() {
               {tab === "compare" && <NcmCompare key={focus.stamp} devices={devices} versions={versions} focus={focus} onRollback={rollback} />}
               {tab === "compliance" && (
                 <NcmCompliance
-                  total={devices.length} policies={compliance.policies} violations={compliance.violations}
+                  total={devices.length} rules={rules} policies={compliance.policies} violations={compliance.violations}
+                  onAddRule={addRule} onRemoveRule={removeRule}
                   onRemediate={(device, ruleIds) => remediate(ruleIds.map(ruleId => ({ device, ruleId })))}
                   onRemediateRule={ruleId => remediate(compliance.violations.filter(violation => violation.ruleId === ruleId))}
                 />

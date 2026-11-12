@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Download, FileDiff, Pencil, Rocket } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { CmdbDevice } from "@/lib/cmdb";
-import { RULES, diffStats, formatTime, type ConfigVersion } from "@/lib/ncm-data";
+import { diffStats, formatTime, type ConfigVersion, type Rule } from "@/lib/ncm-data";
 
 export type Mode = "config" | "history" | "edit";
 
@@ -12,16 +12,17 @@ type Props = {
   device: CmdbDevice | null;
   initialMode?: Mode;
   versions: ConfigVersion[];
+  rules: Rule[];
   onClose: () => void;
   onCompare: (device: string, to?: number) => void;
   onDeploy: (device: string, lines: string[], ref: string) => boolean;
 };
 
-export function NcmConfigViewer({ device, initialMode = "config", versions, onClose, onCompare, onDeploy }: Props) {
+export function NcmConfigViewer({ device, initialMode = "config", versions, rules, onClose, onCompare, onDeploy }: Props) {
   return (
     <Dialog open={!!device} onOpenChange={open => !open && onClose()}>
       <DialogContent className="ncm-config-dialog sm:max-w-3xl">
-        {device && <Workspace key={`${device.name}-${initialMode}`} device={device} initialMode={initialMode} versions={versions} onCompare={onCompare} onDeploy={onDeploy} onClose={onClose} />}
+        {device && <Workspace key={`${device.name}-${initialMode}`} device={device} initialMode={initialMode} versions={versions} rules={rules} onCompare={onCompare} onDeploy={onDeploy} onClose={onClose} />}
       </DialogContent>
     </Dialog>
   );
@@ -33,7 +34,7 @@ const modes: { id: Mode; label: string }[] = [
   { id: "edit", label: "Edit & deploy" },
 ];
 
-function Workspace({ device, initialMode = "config", versions, onCompare, onDeploy, onClose }: Omit<Props, "device"> & { device: CmdbDevice }) {
+function Workspace({ device, initialMode = "config", versions, rules, onCompare, onDeploy, onClose }: Omit<Props, "device"> & { device: CmdbDevice }) {
   const latest = versions[versions.length - 1];
   const [mode, setMode] = useState<Mode>(initialMode);
   const [selected, setSelected] = useState(latest.number);
@@ -117,7 +118,7 @@ function Workspace({ device, initialMode = "config", versions, onCompare, onDepl
       {mode === "edit" && (
         <Editor
           key={versions.length}
-          device={device} base={latest}
+          device={device} base={latest} rules={rules}
           onDeploy={(lines, ref) => {
             const ok = onDeploy(device.name, lines, ref);
             if (ok) deployed(versions.length + 1);
@@ -156,7 +157,7 @@ function History({ versions, onView, onCompare }: { versions: ConfigVersion[]; o
   );
 }
 
-function Editor({ device, base, onDeploy, onCancel }: { device: CmdbDevice; base: ConfigVersion; onDeploy: (lines: string[], ref: string) => boolean; onCancel: () => void }) {
+function Editor({ device, base, rules, onDeploy, onCancel }: { device: CmdbDevice; base: ConfigVersion; rules: Rule[]; onDeploy: (lines: string[], ref: string) => boolean; onCancel: () => void }) {
   const [draft, setDraft] = useState(base.lines.join("\n"));
   const [ticket, setTicket] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -167,7 +168,7 @@ function Editor({ device, base, onDeploy, onCancel }: { device: CmdbDevice; base
   const lines = draft.replace(/\s+$/, "").split("\n");
   const stat = diffStats(base.lines, lines);
   const changed = stat.added + stat.removed > 0;
-  const failing = RULES.filter(rule => !rule.check(lines));
+  const failing = rules.filter(rule => !rule.check(lines));
   const ref = ticket.trim() || "Manual edit, no ticket";
 
   const deploy = () => {
@@ -199,7 +200,7 @@ function Editor({ device, base, onDeploy, onCancel }: { device: CmdbDevice; base
       <div className={`ncm-editor-check${failing.length ? " bad" : ""}`}>
         {failing.length
           ? <><strong>{failing.length} compliance rule{failing.length === 1 ? "" : "s"} not met after this change</strong><span>{failing.map(rule => rule.title).join(" · ")}</span></>
-          : <strong>Passes all {RULES.length} compliance rules</strong>}
+          : <strong>Passes all {rules.length} compliance rules</strong>}
       </div>
       {confirming ? (
         <div className="ncm-confirm">

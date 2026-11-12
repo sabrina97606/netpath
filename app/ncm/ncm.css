@@ -178,4 +178,44 @@
 .ncm-select-col input { width: 14px; height: 14px; accent-color: #409eff; vertical-align: middle; }
 .ncm-config-dialog .ncm-switch-row, .ncm-config-dialog .ncm-field { margin: 4px 0; }
 .ncm-config-dialog .ncm-field input { flex: 1; height: 28px; padding: 0 8px; border: 1px solid #dcdfe6; border-radius: 2px; }
+
+.ncm-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ncm-chip-row button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fff; color: #606266; font-size: 14px; }
+.ncm-chip-row button:hover { border-color: #409eff; color: #409eff; }
+.ncm-chip-row button[aria-pressed="true"] { border-color: #409eff; background: #ecf5ff; color: #409eff; }
+.ncm-chip-row button small { font-size: 12px; color: #909399; }
+.ncm-chip-row button[aria-pressed="true"] small { color: #409eff; }
+
+.ncm-rule-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 4px 0 16px; padding: 16px; border: 1px solid #ebeef5; border-radius: 2px; background: #fafbfc; }
+.ncm-rule-form label, .ncm-rule-form fieldset { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; border: 0; font-size: 13px; color: #606266; }
+.ncm-rule-form legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: #606266; }
+.ncm-rule-form label > span, .ncm-rule-form legend > span { color: #909399; }
+.ncm-rule-form .wide { grid-column: 1 / -1; }
+.ncm-rule-form input, .ncm-rule-form select { height: 28px; padding: 0 8px; border: 1px solid #dcdfe6; border-radius: 2px; background: #fff; font-size: 14px; color: #303133; }
+.ncm-rule-form input:focus, .ncm-rule-form select:focus { outline: none; border-color: #409eff; }
+.ncm-rule-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+.ncm-rule-form .ncm-primary { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 2px; background: #409eff; color: #fff; font-size: 14px; }
+.ncm-rule-form .ncm-primary:disabled { background: #a0cfff; cursor: not-allowed; }
+@media (max-width: 720px) { .ncm-rule-form { grid-template-columns: minmax(0, 1fr); } }
+
+.ncm-col-expand { width: 36px; padding-right: 0; }
+.ncm-expander { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 2px; color: #606266; }
+.ncm-expander svg { transition: transform 0.15s; }
+.ncm-expander[aria-expanded="true"] svg { transform: rotate(90deg); }
+.ncm-expander:hover:not(:disabled) { background: #f0f2f5; color: #409eff; }
+.ncm-expander:disabled { color: #c0c4cc; cursor: not-allowed; }
+.ncm-rule-name { display: flex; align-items: center; gap: 8px; font-weight: 500; color: #303133; }
+.ncm-rule-name em { padding: 0 6px; border-radius: 2px; background: #ecf5ff; color: #409eff; font-size: 12px; font-style: normal; font-weight: 400; line-height: 18px; }
+.ncm-rule-cond { display: block; margin-top: 2px; color: #909399; font-size: 12px; }
+.ncm-muted { color: #c0c4cc; }
+.ncm-passbar { display: flex; align-items: center; gap: 8px; min-width: 130px; }
+.ncm-passbar i { flex: 1; height: 6px; border-radius: 3px; background: #ebeef5; overflow: hidden; }
+.ncm-passbar b { display: block; height: 100%; border-radius: 3px; }
+.ncm-passbar span { min-width: 34px; font-size: 13px; color: #606266; font-variant-numeric: tabular-nums; }
+.ncm-row-actions { display: flex; align-items: center; gap: 12px; }
+.ncm-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 2px; color: #909399; }
+.ncm-icon-btn:hover { background: #fef0f0; color: #e05a60; }
+.ncm-expand-row, .ncm-expand-row:hover { background: #fafbfc; }
+.ncm-failing { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0; padding: 4px 0; list-style: none; }
+.ncm-failing li { display: inline-flex; align-items: center; gap: 10px; padding: 3px 10px; border: 1px solid #ebeef5; border-radius: 2px; background: #fff; font-size: 13px; }
 .sla-filters .sla-secondary { display: inline-flex; align-items: center; gap: 6px; }

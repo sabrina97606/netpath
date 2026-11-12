@@ -7,7 +7,7 @@ import { NcmBulkScripts, NcmJobHistory } from "@/components/ncm-automation";
 import { NcmAlertSettings, type AlertConfig, type ChangeEvent } from "@/components/ncm-changes";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CmdbDevice } from "@/lib/cmdb";
-import { formatTime, relativeTime, siteOf, type BackupInfo, type ConfigVersion, type Job } from "@/lib/ncm-data";
+import { formatTime, relativeTime, siteOf, type BackupInfo, type ConfigVersion, type Job, type Rule } from "@/lib/ncm-data";
 
 const statusColor = { Success: "#25a77a", Failed: "#e05a60", Running: "#409eff" } as const;
 
@@ -15,6 +15,7 @@ type Props = {
   devices: CmdbDevice[];
   backups: Record<string, BackupInfo>;
   versions: Record<string, ConfigVersion[]>;
+  rules: Rule[];
   events: ChangeEvent[];
   acked: Record<string, boolean>;
   jobs: Job[];
@@ -32,7 +33,7 @@ type Props = {
 };
 
 export function NcmBackups({
-  devices, backups, versions, events, acked, jobs, alerts, status, now,
+  devices, backups, versions, rules, events, acked, jobs, alerts, status, now,
   onStatus, onBackup, onCompare, onDeploy, onRunScript, onAck, onAlerts, onSimulate,
 }: Props) {
   const [query, setQuery] = useState("");
@@ -164,7 +165,7 @@ export function NcmBackups({
         {!rows.length && <div className="sla-empty">No devices match the current filters</div>}
       </div>
       <NcmConfigViewer
-        device={viewing?.device ?? null} initialMode={viewing?.mode} versions={viewing ? versions[viewing.device.name] : []} onClose={() => setViewing(null)}
+        device={viewing?.device ?? null} initialMode={viewing?.mode} versions={viewing ? versions[viewing.device.name] : []} rules={rules} onClose={() => setViewing(null)}
         onCompare={(name, to) => { setViewing(null); onCompare(name, to); }} onDeploy={onDeploy}
       />
       <NcmBulkScripts

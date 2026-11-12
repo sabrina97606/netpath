@@ -140,7 +140,17 @@ export function diffStats(a: string[], b: string[]) {
 /* ------------------------------------------------------------- compliance */
 
 export type Severity = "High" | "Medium" | "Low";
-export type Rule = { id: string; title: string; severity: Severity; check: (lines: string[]) => boolean; fix: (lines: string[]) => string[] };
+export type Rule = {
+  id: string;
+  title: string;
+  severity: Severity;
+  condition: string;
+  custom?: boolean;
+  check: (lines: string[]) => boolean;
+  fix: (lines: string[]) => string[];
+};
+export type Policy = { id: string; name: string; description: string; ruleIds: string[] };
+export type RuleSpec = { title: string; severity: Severity; mode: "require" | "forbid"; text: string; fixLine: string };
 
 const replaceLine = (lines: string[], match: (line: string) => boolean, next: string) => lines.map(line => (match(line) ? next : line));
 const insertBeforeBanner = (lines: string[], next: string) => {
@@ -150,17 +160,17 @@ const insertBeforeBanner = (lines: string[], next: string) => {
 
 export const RULES: Rule[] = [
   {
-    id: "ssh-only", title: "VTY accepts SSH only (no Telnet)", severity: "High",
+    id: "ssh-only", title: "VTY accepts SSH only (no Telnet)", severity: "High", condition: "Must not contain: transport input … telnet",
     check: lines => !lines.some(line => /transport input .*telnet/.test(line)),
     fix: lines => replaceLine(lines, line => /transport input/.test(line), " transport input ssh"),
   },
   {
-    id: "http-off", title: "HTTP management server disabled", severity: "Medium",
+    id: "http-off", title: "HTTP management server disabled", severity: "Medium", condition: "Must contain: no ip http server",
     check: lines => lines.includes("no ip http server"),
     fix: lines => replaceLine(lines, line => line === "ip http server", "no ip http server"),
   },
   {
-    id: "vty-timeout", title: "VTY idle timeout is 1-15 minutes", severity: "Medium",
+    id: "vty-timeout", title: "VTY idle timeout is 1-15 minutes", severity: "Medium", condition: "exec-timeout between 1 and 15 minutes",
     check: lines => {
       const minutes = Number(lines.find(line => line.startsWith(" exec-timeout"))?.split(" ")[2]);
       return minutes >= 1 && minutes <= 15;
@@ -168,17 +178,17 @@ export const RULES: Rule[] = [
     fix: lines => replaceLine(lines, line => line.startsWith(" exec-timeout"), " exec-timeout 10 0"),
   },
   {
-    id: "ntp", title: "NTP server configured", severity: "Low",
+    id: "ntp", title: "NTP server configured", severity: "Low", condition: "Must contain: ntp server",
     check: lines => lines.some(line => line.startsWith("ntp server")),
     fix: lines => (lines.some(line => line.startsWith("ntp server")) ? lines : insertBeforeBanner(lines, "ntp server 10.9.0.10")),
   },
   {
-    id: "syslog", title: "Remote syslog host configured", severity: "Medium",
+    id: "syslog", title: "Remote syslog host configured", severity: "Medium", condition: "Must contain: logging host",
     check: lines => lines.some(line => line.startsWith("logging host")),
     fix: lines => (lines.some(line => line.startsWith("logging host")) ? lines : insertBeforeBanner(lines, "logging host 10.9.0.20")),
   },
   {
-    id: "snmp-acl", title: "SNMP community restricted by ACL", severity: "Medium",
+    id: "snmp-acl", title: "SNMP community restricted by ACL", severity: "Medium", condition: "snmp-server community … RO must reference an ACL",
     check: lines => lines.some(line => /^snmp-server community \S+ RO \d+/.test(line)),
     fix: lines => replaceLine(lines, line => /^snmp-server community \S+ RO$/.test(line), "snmp-server community ****** RO 10"),
   },
@@ -186,7 +196,24 @@ export const RULES: Rule[] = [
 
 export const ruleById = new Map(RULES.map(rule => [rule.id, rule]));
 
-export const POLICIES: { id: string; name: string; description: string; ruleIds: string[] }[] = [
+export function buildRule(id: string, spec: RuleSpec): Rule {
+  const text = spec.text.trim();
+  const fixLine = (spec.fixLine.trim() || text);
+  const hasText = (lines: string[]) => lines.some(line => line.includes(text));
+  return spec.mode === "require"
+    ? {
+        id, title: spec.title.trim(), severity: spec.severity, condition: `Must contain: ${text}`, custom: true,
+        check: hasText,
+        fix: lines => (hasText(lines) ? lines : insertBeforeBanner(lines, fixLine)),
+      }
+    : {
+        id, title: spec.title.trim(), severity: spec.severity, condition: `Must not contain: ${text}`, custom: true,
+        check: lines => !hasText(lines),
+        fix: lines => lines.filter(line => !line.includes(text)),
+      };
+}
+
+export const POLICIES: Policy[] = [
   { id: "stig", name: "DISA STIG", description: "Network device security technical guide", ruleIds: ["ssh-only", "http-off", "vty-timeout", "snmp-acl"] },
   { id: "pci", name: "PCI DSS", description: "Payment card data environment", ruleIds: ["ssh-only", "http-off", "vty-timeout", "ntp", "syslog"] },
   { id: "sox", name: "SOX", description: "Audit trail and change accountability", ruleIds: ["ntp", "syslog"] },
@@ -279,21 +306,17 @@ export const initialJobs: Job[] = [
 
 export type Violation = { device: string; ruleId: string };
 
-export function computeCompliance(versions: Record<string, ConfigVersion[]>) {
+export function computeCompliance(versions: Record<string, ConfigVersion[]>, rules: Rule[], policyList: Policy[]) {
   const violations: Violation[] = [];
   for (const item of devices) {
     const lines = latestOf(versions[item.name]).lines;
-    for (const rule of RULES) if (!rule.check(lines)) violations.push({ device: item.name, ruleId: rule.id });
+    for (const rule of rules) if (!rule.check(lines)) violations.push({ device: item.name, ruleId: rule.id });
   }
-  const policies = POLICIES.map(policy => {
+  const percent = (checks: number, failed: number) => (checks ? Math.round(((checks - failed) / checks) * 100) : 100);
+  const policies = policyList.map(policy => {
     const own = violations.filter(violation => policy.ruleIds.includes(violation.ruleId));
-    const checks = devices.length * policy.ruleIds.length;
-    return {
-      ...policy,
-      score: Math.round(((checks - own.length) / checks) * 100),
-      compliantDevices: devices.length - new Set(own.map(violation => violation.device)).size,
-    };
+    return { ...policy, score: percent(devices.length * policy.ruleIds.length, own.length) };
   });
-  const score = Math.round(policies.reduce((sum, policy) => sum + policy.score, 0) / policies.length);
+  const score = percent(devices.length * rules.length, violations.length);
   return { violations, policies, score };
 }
